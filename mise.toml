@@ -9,6 +9,7 @@ hk = "2.9.0"
 jactionlint = "2.3.0"
 shellcheck = "0.11.0"
 betterleaks = "1.9.0"
+osv-scanner = "2.7.0"
 
 [env]
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
@@ -51,6 +52,18 @@ run = "jactionlint"
 
 [tasks.secrets]
 run = "betterleaks dir . --no-banner --redact"
+
+[tasks."check:audit"]
+run = [
+  { task = "audit:vulnerabilities" },
+  { task = "audit:secrets" },
+]
+
+[tasks."audit:vulnerabilities"]
+run = "osv-scanner scan source -L package-lock.json -L backend/BookingCalendar.Api/packages.lock.json -L backend/BookingCalendar.Api.Tests/packages.lock.json"
+
+[tasks."audit:secrets"]
+run = "betterleaks git --no-banner --redact"
 
 [tasks.typecheck]
 run = "npm run typecheck --workspace frontend"
