@@ -52,6 +52,14 @@ jobs:
           BEFORE_SHA: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
 
+      - name: Check the contract for breaking changes
+        if: github.event_name == 'pull_request'
+        run: |
+          git show "$BASE_SHA:contract/openapi/openapi.yaml" > "$RUNNER_TEMP/base-openapi.yaml"
+          oasdiff breaking "$RUNNER_TEMP/base-openapi.yaml" contract/openapi/openapi.yaml --fail-on ERR
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
       - name: Run checks
         run: mise run check
 
