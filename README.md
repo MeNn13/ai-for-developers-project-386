@@ -138,6 +138,28 @@ knip, syncpack, vacuum), поиск секретов, проверку типо�
 mise run generate
 ```
 
+## Docker
+
+Проект собирается в один образ: ASP.NET Core отдаёт и API, и собранный фронтенд
+из `wwwroot`, поэтому проверяющему достаточно одного контейнера.
+
+```bash
+mise run docker:build
+docker run --rm -p 8080:8080 booking-calendar:local
+```
+
+- приложение: <http://127.0.0.1:8080>
+- проверка: <http://127.0.0.1:8080/api/health>
+
+Полная проверка «образ собирается и контейнер отвечает» — то же, что делает CI:
+
+```bash
+mise run docker:check
+```
+
+`Dockerfile` линтуется Hadolint в `mise run check`, базовые образы обновляет
+Dependabot.
+
 ## Структура
 
 ```text
