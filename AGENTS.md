@@ -87,3 +87,21 @@ fix(booking): reject overlapping slots
 chore(ci): run checks on push
 docs: describe local setup
 ```
+
+## Agent skills
+
+### Issue tracker
+
+Задачи и спецификации живут в GitHub Issues репозитория
+`MeNn13/ai-for-developers-project-386`, работа — через CLI `gh`. См.
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Пять канонических ролей триажа используют строки меток по умолчанию, без
+переименований. См. `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Один контекст: `GLOSSARY.md` и `docs/adr/` в корне репозитория. См.
+`docs/agents/domain.md`.
