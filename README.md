@@ -52,7 +52,8 @@
 - Frontend: React 19, TypeScript, Vite 8, Mantine 9.
 - Контракт: TypeSpec 1.17 → OpenAPI 3.0 → TypeScript-клиент (Orval).
 - Тесты: xUnit + `WebApplicationFactory`.
-- Линтеры: анализаторы .NET + `dotnet format`, Oxlint, Prettier.
+- Линтеры: анализаторы .NET + `dotnet format`, Oxlint, Prettier, rumdl.
+- Проверки: jactionlint, agnix, knip, syncpack, vacuum, oasdiff, betterleaks, OSV-Scanner, lychee.
 - Окружение: mise, hk, pitchfork.
 
 Версии инструментов зафиксированы в `mise.toml` и `mise.lock`, зависимости — в lock-файлах npm и NuGet.
@@ -115,7 +116,21 @@ mise daemons stop
 mise run check
 ```
 
-Команда запускает линтеры, проверку типов, тесты и сборку. CI вызывает её же.
+Одна команда запускает всё, что можно проверить локально: линтеры (анализаторы
+.NET и `dotnet format`, TypeSpec, Oxlint, Prettier, rumdl, jactionlint, agnix,
+knip, syncpack, vacuum), поиск секретов, проверку типов, тесты, сборку и сверку
+сгенерированных файлов с контрактом. CI вызывает эту же команду.
+
+Ещё в CI есть отдельная задача `audit`:
+
+- `mise run check:audit` — проверки, которым нужна сеть или вся история git:
+  уязвимости в lock-файлах (OSV-Scanner), секреты в истории (betterleaks),
+  битые ссылки (lychee). Запускается на каждый PR и раз в неделю по расписанию.
+- Сообщения коммитов (`commitlint`) и совместимость OpenAPI с базовой веткой
+  (`oasdiff`) проверяются прямо в workflow: им нужен диапазон коммитов.
+
+Быстрые проверки изменённых файлов запускаются в `pre-commit`, полный
+`mise run check` — в `pre-push`. Автоисправления: `mise run fix`.
 
 Генерация контракта и клиента:
 
