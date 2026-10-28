@@ -10,6 +10,7 @@ jactionlint = "2.3.0"
 shellcheck = "0.11.0"
 betterleaks = "1.9.0"
 osv-scanner = "2.7.0"
+vacuum = "0.35.4"
 
 [env]
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
@@ -33,13 +34,16 @@ run = "npm run generate --workspace contract"
 run = "npm run generate --workspace contract && git diff --exit-code -- contract/openapi frontend/src/api/generated"
 
 [tasks.lint]
-depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "knip", "syncpack", "agent:lint"]
+depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "knip", "syncpack", "agent:lint", "contract:lint"]
 
 [tasks."lint:dotnet"]
 run = "dotnet format backend/BookingCalendar.sln --verify-no-changes --no-restore"
 
 [tasks."lint:contract"]
 run = "npm run lint --workspace contract"
+
+[tasks."contract:lint"]
+run = "vacuum lint contract/openapi/openapi.yaml"
 
 [tasks."lint:web"]
 run = "npm run lint --workspace frontend"
