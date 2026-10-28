@@ -27,6 +27,9 @@ run = "npm ci"
 [tasks.generate]
 run = "npm run generate --workspace contract"
 
+[tasks."generate:check"]
+run = "npm run generate --workspace contract && git diff --exit-code -- contract/openapi frontend/src/api/generated"
+
 [tasks.lint]
 depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci"]
 
@@ -57,6 +60,7 @@ run = [
   { task = "typecheck" },
   { task = "test" },
   { task = "build" },
+  { task = "generate:check" },
 ]
 
 [tasks.build]
