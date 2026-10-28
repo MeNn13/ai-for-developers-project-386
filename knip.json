@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "frontend": {
+      "project": ["src/**/*.{ts,tsx}"],
+      "ignore": ["src/api/generated/**"]
+    },
+    "contract": {
+      "ignoreDependencies": [
+        "@typespec/http",
+        "@typespec/openapi",
+        "@typespec/openapi3",
+        "@typespec/rest"
+      ]
+    }
+  }
+}
