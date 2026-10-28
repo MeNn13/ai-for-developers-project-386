@@ -16,6 +16,18 @@ app.MapOpenApi();
 
 app.MapGet("/api/health", () => new HealthResponse("ok"));
 
+// An unknown API route answers 404 instead of falling through to the SPA
+// fallback below, which would return HTML with 200.
+app.Map("/api/{**rest}", (HttpContext context) =>
+{
+    context.Response.StatusCode = StatusCodes.Status404NotFound;
+    return Task.CompletedTask;
+});
+
+// Deep links to the SPA (/book, /owner) have no file on disk, so the fallback
+// returns index.html and the router takes over.
+app.MapFallbackToFile("index.html");
+
 app.Run();
 
 #pragma warning disable CA1050 // Program остаётся в глобальном namespace для WebApplicationFactory.
