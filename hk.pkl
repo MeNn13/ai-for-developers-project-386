@@ -1,11 +1,23 @@
 amends "package://github.com/jdx/hk/releases/download/v2.9.0/hk@2.9.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v2.9.0/hk@2.9.0#/Builtins.pkl"
 
+// Three tiers: fast checks on staged files (pre-commit), the whole project
+// before it leaves the machine (pre-push), and everything again in CI.
+// CI runs `mise run check`, the same command as the pre-push hook.
+
 hooks {
   ["check"] {
     steps {
       ["check"] {
         check = "mise run check"
+      }
+    }
+  }
+
+  ["fix"] {
+    steps {
+      ["fix"] {
+        fix = "mise run fix"
       }
     }
   }
@@ -18,6 +30,29 @@ hooks {
 
   ["pre-commit"] {
     stash = "none"
+    steps {
+      ["trailing-whitespace"] = Builtins.trailing_whitespace
+      ["newlines"] = Builtins.newlines
+      ["merge-conflict"] = Builtins.check_merge_conflict
+      ["prettier"] {
+        glob = List("**/*.{ts,tsx,js,jsx,json,jsonc,css,html,md,yaml,yml}")
+        exclude = List(
+          "contract/openapi/**",
+          "frontend/src/api/generated/**",
+          "backend/**",
+          "package-lock.json",
+          ".github/workflows/hexlet-check.yml",
+        )
+        check = "npx prettier --check {{files}}"
+      }
+      ["oxlint"] {
+        glob = List("frontend/src/**/*.{ts,tsx}")
+        check = "npm run lint --workspace frontend"
+      }
+    }
+  }
+
+  ["pre-push"] {
     steps {
       ["check"] {
         check = "mise run check"

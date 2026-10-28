@@ -51,6 +51,9 @@ run = "jactionlint .github/workflows/ci.yml"
 [tasks.typecheck]
 run = "npm run typecheck --workspace frontend"
 
+[tasks.fix]
+run = ["npm run format", "dotnet format backend/BookingCalendar.sln --no-restore"]
+
 [tasks.test]
 run = "dotnet test backend/BookingCalendar.sln --no-restore --nologo"
 
