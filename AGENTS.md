@@ -21,6 +21,7 @@
 - `mise run check:audit` — проверки с сетью и по всей истории git (CI и вручную).
 - `mise run fix` — безопасные автоисправления (Prettier, `dotnet format`).
 - `mise run test` — тесты backend.
+- `mise run test:web` — тесты frontend.
 - `mise run lint` — линтеры.
 - `mise run build` — production-сборка backend и frontend.
 - `mise run generate` — TypeSpec → OpenAPI → клиент.
@@ -38,8 +39,9 @@
 - `mise.toml` — версии и задачи, `hk.pkl` — git-хуки, `.github/workflows/ci.yml` — CI.
 - `Dockerfile` — один образ: API и собранный фронтенд в `wwwroot`; `scripts/image-check.mjs`
   проверяет, что образ собирается и контейнер отвечает.
-- Конфиги проверок: `knip.json`, `lychee.toml`, `.rumdl.toml`, `.prettierrc.json`,
-  `commitlint.config.js` в корне; `.github/jactionlint.yaml`, `.github/dependabot.yml`.
+- Конфиги проверок: `knip.json`, `lychee.toml`, `.rumdl.toml`, `.agnix.toml`,
+  `.prettierrc.json`, `commitlint.config.js` в корне; `.github/jactionlint.yaml`,
+  `.github/dependabot.yml`.
 
 ## Правила
 

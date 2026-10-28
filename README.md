@@ -51,7 +51,8 @@
 - Backend: .NET 10 (LTS), ASP.NET Core Minimal API.
 - Frontend: React 19, TypeScript, Vite 8, Mantine 9.
 - Контракт: TypeSpec 1.17 → OpenAPI 3.0 → TypeScript-клиент (Orval).
-- Тесты: xUnit + `WebApplicationFactory`.
+- Тесты: xUnit + `WebApplicationFactory` на бэкенде, Vitest + Testing Library на
+  фронтенде.
 - Линтеры: анализаторы .NET + `dotnet format`, Oxlint, Prettier, rumdl.
 - Проверки: jactionlint, agnix, knip, syncpack, vacuum, oasdiff, betterleaks, OSV-Scanner, lychee.
 - Окружение: mise, hk, pitchfork.
