@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:
@@ -21,6 +21,8 @@ jobs:
           persist-credentials: false
 
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: "2026.10.12"
 
       - name: Trust mise config
         run: mise trust
