@@ -24,6 +24,9 @@
 - `mise run lint` — линтеры.
 - `mise run build` — production-сборка backend и frontend.
 - `mise run generate` — TypeSpec → OpenAPI → клиент.
+- `mise run docker:build` / `docker:run` — образ и контейнер локально.
+- `mise run docker:check` — собрать образ, запустить контейнер, проверить ответы
+  (медленно, поэтому только CI и вручную).
 - `mise run hooks:install` — установить git-хуки.
 - `mise daemons status` / `logs` / `stop` — состояние и остановка dev-серверов.
 
@@ -33,6 +36,8 @@
 - `contract/` — TypeSpec, `contract/openapi/openapi.yaml`, конфигурация Orval.
 - `frontend/` — React/Vite/Mantine; сгенерированный клиент в `src/api/generated`.
 - `mise.toml` — версии и задачи, `hk.pkl` — git-хуки, `.github/workflows/ci.yml` — CI.
+- `Dockerfile` — один образ: API и собранный фронтенд в `wwwroot`; `scripts/image-check.mjs`
+  проверяет, что образ собирается и контейнер отвечает.
 - Конфиги проверок: `knip.json`, `lychee.toml`, `.rumdl.toml`, `.prettierrc.json`,
   `commitlint.config.js` в корне; `.github/jactionlint.yaml`, `.github/dependabot.yml`.
 
