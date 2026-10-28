@@ -63,6 +63,28 @@ jobs:
       - name: Run checks
         run: mise run check
 
+  # The Hexlet requirement says the project must build into an image and run in
+  # a container, so that is checked on every pull request. It is a separate job
+  # because building the image costs minutes and the check job stays fast.
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: '2026.10.12'
+
+      - name: Trust mise config
+        run: mise trust
+
+      - name: Build the image and check the container
+        run: mise run docker:check
+
   # Slow scans that read the network or the whole git history. They do not
   # need the dependencies installed, and they also run on a schedule.
   audit:
