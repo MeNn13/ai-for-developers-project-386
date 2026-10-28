@@ -101,12 +101,16 @@ run = ["npm run format", "dotnet format backend/BookingCalendar.sln --no-restore
 [tasks.test]
 run = "dotnet test backend/BookingCalendar.sln --no-restore --nologo"
 
+[tasks."test:web"]
+run = "npm test --workspace frontend"
+
 [tasks.check]
 run = [
   { task = "lint" },
   { task = "secrets" },
   { task = "typecheck" },
   { task = "test" },
+  { task = "test:web" },
   { task = "build" },
   { task = "generate:check" },
 ]

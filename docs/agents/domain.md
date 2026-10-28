@@ -14,7 +14,7 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 This repo is single-context:
 
-```
+```text
 /
 ├── GLOSSARY.md
 ├── docs/adr/
@@ -25,7 +25,7 @@ This repo is single-context:
 
 A multi-context layout (presence of `GLOSSARY-MAP.md` at the root) would look like this — not used here:
 
-```
+```text
 /
 ├── GLOSSARY-MAP.md
 ├── docs/adr/                          ← system-wide decisions

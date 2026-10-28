@@ -42,6 +42,15 @@ async function waitFor(url) {
   throw lastError ?? new Error(`${url} did not answer in time`)
 }
 
+async function assertIndexPage(path, message) {
+  const page = await waitFor(`${base}${path}`)
+  const html = await page.text()
+  if (!html.includes('id="root"')) {
+    throw new Error(`the frontend page ${path} is not served`)
+  }
+  console.log(message)
+}
+
 async function main() {
   console.log(`building ${image}`)
   step('docker', ['build', '--tag', image, '.'])
@@ -57,12 +66,10 @@ async function main() {
   }
   console.log('health endpoint answered ok')
 
-  const page = await waitFor(`${base}/`)
-  const html = await page.text()
-  if (!html.includes('id="root"')) {
-    throw new Error('the index page of the frontend is not served')
-  }
-  console.log('frontend is served from the same container')
+  // Without the host fallback a deep link such as /book answers 404, so the
+  // /book check is what keeps the client-side routes working in the container.
+  await assertIndexPage('/', 'frontend is served from the same container')
+  await assertIndexPage('/book', 'deep links reach the frontend')
 }
 
 try {
