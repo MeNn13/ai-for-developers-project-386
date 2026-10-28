@@ -11,6 +11,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
+  "overrides": {
+    "@scalar/json-magic@0.13.5": {
+      "undici": "7.30.1"
+    }
+  },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
