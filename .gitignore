@@ -56,6 +56,9 @@ yarn-error.log*
 .mise.local.toml
 mise.local.toml
 
+### rumdl
+.rumdl_cache/
+
 ### macOS
 .DS_Store
 

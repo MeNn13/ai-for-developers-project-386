@@ -1,12 +1,15 @@
 openapi: 3.0.0
 info:
   title: Booking Calendar API
+  description: API сервиса бронирования календаря.
   version: 0.0.0
-tags: []
+tags:
+  - name: health
 paths:
   /api/health:
     get:
       operationId: getHealth
+      description: Проверяет, что API отвечает.
       parameters: []
       responses:
         '200':
@@ -15,6 +18,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+      tags:
+        - health
 components:
   schemas:
     HealthResponse:
@@ -26,3 +31,11 @@ components:
           type: string
           enum:
             - ok
+          description: Признак того, что API отвечает.
+      description: Состояние API.
+      example:
+        status: ok
+servers:
+  - url: http://127.0.0.1:5000
+    description: Локальная разработка
+    variables: {}

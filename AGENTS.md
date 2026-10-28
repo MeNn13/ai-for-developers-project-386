@@ -16,7 +16,10 @@
 - `mise install` — установить версии инструментов из `mise.toml`.
 - `mise run install` — восстановить зависимости .NET и npm.
 - `mise run dev` — запустить API на `:5000` и Vite на `:5173`.
-- `mise run check` — линтеры, типы, тесты и сборка. Запускать перед коммитом.
+- `mise run check` — все проверки: линтеры, секреты, типы, тесты, сборка, сверка
+  сгенерированных файлов. Обязательна перед пушем, CI вызывает её же.
+- `mise run check:audit` — проверки с сетью и по всей истории git (CI и вручную).
+- `mise run fix` — безопасные автоисправления (Prettier, `dotnet format`).
 - `mise run test` — тесты backend.
 - `mise run lint` — линтеры.
 - `mise run build` — production-сборка backend и frontend.
@@ -27,15 +30,21 @@
 ## Структура
 
 - `backend/` — ASP.NET Core API и xUnit-тесты.
-- `contract/` — TypeSpec, `openapi/openapi.yaml`, конфигурация Orval.
+- `contract/` — TypeSpec, `contract/openapi/openapi.yaml`, конфигурация Orval.
 - `frontend/` — React/Vite/Mantine; сгенерированный клиент в `src/api/generated`.
 - `mise.toml` — версии и задачи, `hk.pkl` — git-хуки, `.github/workflows/ci.yml` — CI.
+- Конфиги проверок: `knip.json`, `lychee.toml`, `.rumdl.toml`, `.prettierrc.json`,
+  `commitlint.config.js` в корне; `.github/jactionlint.yaml`, `.github/dependabot.yml`.
 
 ## Правила
 
 - `contract/main.tsp` — источник истины для API. После изменения контракта запустить
   `mise run generate` и коммитить OpenAPI и клиент вместе.
-- Не редактировать `frontend/src/api/generated` вручную.
+- `frontend/src/api/generated` и `contract/openapi/openapi.yaml` — сгенерированные
+  файлы, руками не правятся: `mise run check` перегенерирует их и упадёт на расхождении.
+- Правила линтеров не отключаются ради зелёной сборки. Исключение — узкое (путь и
+  правило), с причиной и датой ревью (например, `expires` в `.github/jactionlint.yaml`),
+  и это решение человека, а не агента.
 - `.github/workflows/hexlet-check.yml` не удалять и не переименовывать.
 - Данные хранятся в памяти: после перезапуска API типы встреч и записи сбрасываются.
   Внешней БД нет.

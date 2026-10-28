@@ -1,12 +1,11 @@
 # Календарь звонков
 
-
 [![hexlet-check](https://github.com/MeNn13/ai-for-developers-project-386/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/MeNn13/ai-for-developers-project-386/actions)
 
 Разработайте совместно с ИИ сервис для бронирования календаря
 
-Учебный проект Хекслета: https://ru.hexlet.io/programs/ai-for-developers
-Как это должно работать: https://files.hexlet.app/a/2ipc5m
+Учебный проект Хекслета: <https://ru.hexlet.io/programs/ai-for-developers>
+Как это должно работать: <https://files.hexlet.app/a/2ipc5m>
 
 ## Пользовательский сценарий
 
@@ -53,7 +52,8 @@
 - Frontend: React 19, TypeScript, Vite 8, Mantine 9.
 - Контракт: TypeSpec 1.17 → OpenAPI 3.0 → TypeScript-клиент (Orval).
 - Тесты: xUnit + `WebApplicationFactory`.
-- Линтеры: анализаторы .NET + `dotnet format`, Oxlint, Prettier.
+- Линтеры: анализаторы .NET + `dotnet format`, Oxlint, Prettier, rumdl.
+- Проверки: jactionlint, agnix, knip, syncpack, vacuum, oasdiff, betterleaks, OSV-Scanner, lychee.
 - Окружение: mise, hk, pitchfork.
 
 Версии инструментов зафиксированы в `mise.toml` и `mise.lock`, зависимости — в lock-файлах npm и NuGet.
@@ -99,8 +99,8 @@ mise activate pwsh | Out-String | Invoke-Expression
 mise run dev
 ```
 
-- API: http://127.0.0.1:5000/api/health
-- Frontend: http://127.0.0.1:5173
+- API: <http://127.0.0.1:5000/api/health>
+- Frontend: <http://127.0.0.1:5173>
 
 Управление фоновыми процессами:
 
@@ -116,7 +116,21 @@ mise daemons stop
 mise run check
 ```
 
-Команда запускает линтеры, проверку типов, тесты и сборку. CI вызывает её же.
+Одна команда запускает всё, что можно проверить локально: линтеры (анализаторы
+.NET и `dotnet format`, TypeSpec, Oxlint, Prettier, rumdl, jactionlint, agnix,
+knip, syncpack, vacuum), поиск секретов, проверку типов, тесты, сборку и сверку
+сгенерированных файлов с контрактом. CI вызывает эту же команду.
+
+Ещё в CI есть отдельная задача `audit`:
+
+- `mise run check:audit` — проверки, которым нужна сеть или вся история git:
+  уязвимости в lock-файлах (OSV-Scanner), секреты в истории (betterleaks),
+  битые ссылки (lychee). Запускается на каждый PR и раз в неделю по расписанию.
+- Сообщения коммитов (`commitlint`) и совместимость OpenAPI с базовой веткой
+  (`oasdiff`) проверяются прямо в workflow: им нужен диапазон коммитов.
+
+Быстрые проверки изменённых файлов запускаются в `pre-commit`, полный
+`mise run check` — в `pre-push`. Автоисправления: `mise run fix`.
 
 Генерация контракта и клиента:
 

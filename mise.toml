@@ -8,6 +8,12 @@ pitchfork = "2.32.3"
 hk = "2.9.0"
 jactionlint = "2.3.0"
 shellcheck = "0.11.0"
+betterleaks = "1.9.0"
+osv-scanner = "2.7.0"
+vacuum = "0.35.4"
+rumdl = "0.3.0"
+lychee = "0.24.2"
+"github:oasdiff/oasdiff" = "1.34.1"
 
 [env]
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
@@ -27,8 +33,11 @@ run = "npm ci"
 [tasks.generate]
 run = "npm run generate --workspace contract"
 
+[tasks."generate:check"]
+run = "npm run generate --workspace contract && git diff --exit-code -- contract/openapi frontend/src/api/generated"
+
 [tasks.lint]
-depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci"]
+depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "lint:docs", "knip", "syncpack", "agent:lint", "contract:lint"]
 
 [tasks."lint:dotnet"]
 run = "dotnet format backend/BookingCalendar.sln --verify-no-changes --no-restore"
@@ -36,17 +45,54 @@ run = "dotnet format backend/BookingCalendar.sln --verify-no-changes --no-restor
 [tasks."lint:contract"]
 run = "npm run lint --workspace contract"
 
+[tasks."contract:lint"]
+run = "vacuum lint contract/openapi/openapi.yaml"
+
 [tasks."lint:web"]
 run = "npm run lint --workspace frontend"
 
 [tasks."lint:format"]
-run = "npm run format:check --workspace frontend"
+run = "npm run format:check"
 
 [tasks."lint:ci"]
-run = "jactionlint .github/workflows/ci.yml"
+run = "jactionlint"
+
+[tasks."lint:docs"]
+run = "rumdl check ."
+
+[tasks.knip]
+run = "npm run knip"
+
+[tasks.syncpack]
+run = "npm run syncpack"
+
+[tasks."agent:lint"]
+run = "npm run agent:lint"
+
+[tasks.secrets]
+run = "betterleaks dir . --no-banner --redact"
+
+[tasks."check:audit"]
+run = [
+  { task = "audit:vulnerabilities" },
+  { task = "audit:secrets" },
+  { task = "audit:links" },
+]
+
+[tasks."audit:vulnerabilities"]
+run = "osv-scanner scan source -L package-lock.json -L backend/BookingCalendar.Api/packages.lock.json -L backend/BookingCalendar.Api.Tests/packages.lock.json"
+
+[tasks."audit:secrets"]
+run = "betterleaks git --no-banner --redact"
+
+[tasks."audit:links"]
+run = "lychee --no-progress README.md AGENTS.md contract/README.md .github/workflows/README.md"
 
 [tasks.typecheck]
 run = "npm run typecheck --workspace frontend"
+
+[tasks.fix]
+run = ["npm run format", "dotnet format backend/BookingCalendar.sln --no-restore"]
 
 [tasks.test]
 run = "dotnet test backend/BookingCalendar.sln --no-restore --nologo"
@@ -54,9 +100,11 @@ run = "dotnet test backend/BookingCalendar.sln --no-restore --nologo"
 [tasks.check]
 run = [
   { task = "lint" },
+  { task = "secrets" },
   { task = "typecheck" },
   { task = "test" },
   { task = "build" },
+  { task = "generate:check" },
 ]
 
 [tasks.build]
