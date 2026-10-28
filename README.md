@@ -4,8 +4,8 @@
 
 Разработайте совместно с ИИ сервис для бронирования календаря
 
-Учебный проект Хекслета: https://ru.hexlet.io/programs/ai-for-developers
-Как это должно работать: https://files.hexlet.app/a/2ipc5m
+Учебный проект Хекслета: <https://ru.hexlet.io/programs/ai-for-developers>
+Как это должно работать: <https://files.hexlet.app/a/2ipc5m>
 
 ## Пользовательский сценарий
 
@@ -98,8 +98,8 @@ mise activate pwsh | Out-String | Invoke-Expression
 mise run dev
 ```
 
-- API: http://127.0.0.1:5000/api/health
-- Frontend: http://127.0.0.1:5173
+- API: <http://127.0.0.1:5000/api/health>
+- Frontend: <http://127.0.0.1:5173>
 
 Управление фоновыми процессами:
 

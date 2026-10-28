@@ -2,6 +2,9 @@
 node_modules
 dist
 
+# Tool caches
+.rumdl_cache
+
 # Lock files
 package-lock.json
 mise.lock
