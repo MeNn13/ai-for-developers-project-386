@@ -10,7 +10,8 @@
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "knip": "knip"
+    "knip": "knip",
+    "syncpack": "syncpack lint"
   },
   "overrides": {
     "@scalar/json-magic@0.13.5": {
@@ -21,6 +22,7 @@
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
     "knip": "6.43.0",
-    "prettier": "3.9.10"
+    "prettier": "3.9.10",
+    "syncpack": "15.3.3"
   }
 }

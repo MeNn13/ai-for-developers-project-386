@@ -33,7 +33,7 @@ run = "npm run generate --workspace contract"
 run = "npm run generate --workspace contract && git diff --exit-code -- contract/openapi frontend/src/api/generated"
 
 [tasks.lint]
-depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "knip"]
+depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "knip", "syncpack"]
 
 [tasks."lint:dotnet"]
 run = "dotnet format backend/BookingCalendar.sln --verify-no-changes --no-restore"
@@ -52,6 +52,9 @@ run = "jactionlint"
 
 [tasks.knip]
 run = "npm run knip"
+
+[tasks.syncpack]
+run = "npm run syncpack"
 
 [tasks.secrets]
 run = "betterleaks dir . --no-banner --redact"
