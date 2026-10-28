@@ -41,13 +41,6 @@ hooks {
       }
       ["prettier"] {
         glob = List("**/*.{ts,tsx,js,jsx,json,jsonc,css,html,md,yaml,yml}")
-        exclude = List(
-          "contract/openapi/**",
-          "frontend/src/api/generated/**",
-          "backend/**",
-          "package-lock.json",
-          ".github/workflows/hexlet-check.yml",
-        )
         check = "npx prettier --check {{files}}"
       }
       ["oxlint"] {
