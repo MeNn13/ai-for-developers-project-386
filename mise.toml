@@ -8,6 +8,7 @@ pitchfork = "2.32.3"
 hk = "2.9.0"
 jactionlint = "2.3.0"
 shellcheck = "0.11.0"
+betterleaks = "1.9.0"
 
 [env]
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
@@ -48,6 +49,9 @@ run = "npm run format:check"
 [tasks."lint:ci"]
 run = "jactionlint"
 
+[tasks.secrets]
+run = "betterleaks dir . --no-banner --redact"
+
 [tasks.typecheck]
 run = "npm run typecheck --workspace frontend"
 
@@ -60,6 +64,7 @@ run = "dotnet test backend/BookingCalendar.sln --no-restore --nologo"
 [tasks.check]
 run = [
   { task = "lint" },
+  { task = "secrets" },
   { task = "typecheck" },
   { task = "test" },
   { task = "build" },

@@ -36,6 +36,9 @@ hooks {
       ["trailing-whitespace"] = Builtins.trailing_whitespace
       ["newlines"] = Builtins.newlines
       ["merge-conflict"] = Builtins.check_merge_conflict
+      ["betterleaks"] {
+        check = "betterleaks git --staged --no-banner --redact"
+      }
       ["prettier"] {
         glob = List("**/*.{ts,tsx,js,jsx,json,jsonc,css,html,md,yaml,yml}")
         exclude = List(
