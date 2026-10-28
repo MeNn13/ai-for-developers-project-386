@@ -8,6 +8,7 @@
     "frontend"
   ],
   "scripts": {
+    "agent:lint": "agnix --strict .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
+    "agnix": "0.59.3",
     "knip": "6.43.0",
     "prettier": "3.9.10",
     "syncpack": "15.3.3"

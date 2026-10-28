@@ -27,7 +27,7 @@
 ## Структура
 
 - `backend/` — ASP.NET Core API и xUnit-тесты.
-- `contract/` — TypeSpec, `openapi/openapi.yaml`, конфигурация Orval.
+- `contract/` — TypeSpec, `contract/openapi/openapi.yaml`, конфигурация Orval.
 - `frontend/` — React/Vite/Mantine; сгенерированный клиент в `src/api/generated`.
 - `mise.toml` — версии и задачи, `hk.pkl` — git-хуки, `.github/workflows/ci.yml` — CI.
 
