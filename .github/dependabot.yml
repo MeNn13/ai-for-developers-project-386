@@ -2,6 +2,11 @@ version: 2
 
 # A cooldown delays a freshly published version, which limits exposure to a
 # compromised release. jactionlint checks that every update sets one.
+#
+# Dependabot pull requests run without repository secrets, so the Hexlet-owned
+# check in .github/workflows/hexlet-check.yml fails there with "Input required
+# and not supplied: hexlet-id". That failure is expected and says nothing about
+# the update; the ci workflow is the gate.
 
 updates:
   - package-ecosystem: npm
