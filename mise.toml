@@ -46,7 +46,7 @@ run = "npm run lint --workspace frontend"
 run = "npm run format:check"
 
 [tasks."lint:ci"]
-run = "jactionlint .github/workflows/ci.yml"
+run = "jactionlint"
 
 [tasks.typecheck]
 run = "npm run typecheck --workspace frontend"
