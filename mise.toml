@@ -1,0 +1,92 @@
+[settings]
+experimental = true
+
+[tools]
+dotnet = "10.0.403"
+node = "24.22.1"
+pitchfork = "2.32.3"
+hk = "2.9.0"
+jactionlint = "2.3.0"
+shellcheck = "0.11.0"
+
+[env]
+DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+DOTNET_NOLOGO = "1"
+ASPNETCORE_ENVIRONMENT = "Development"
+ASPNETCORE_URLS = "http://127.0.0.1:5000"
+
+[tasks.install]
+depends = ["install:dotnet", "install:web"]
+
+[tasks."install:dotnet"]
+run = "dotnet restore backend/BookingCalendar.sln --locked-mode"
+
+[tasks."install:web"]
+run = "npm ci"
+
+[tasks.generate]
+run = "npm run generate --workspace contract"
+
+[tasks.lint]
+depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci"]
+
+[tasks."lint:dotnet"]
+run = "dotnet format backend/BookingCalendar.sln --verify-no-changes --no-restore"
+
+[tasks."lint:contract"]
+run = "npm run lint --workspace contract"
+
+[tasks."lint:web"]
+run = "npm run lint --workspace frontend"
+
+[tasks."lint:format"]
+run = "npm run format:check --workspace frontend"
+
+[tasks."lint:ci"]
+run = "jactionlint .github/workflows/ci.yml"
+
+[tasks.typecheck]
+run = "npm run typecheck --workspace frontend"
+
+[tasks.test]
+run = "dotnet test backend/BookingCalendar.sln --no-restore --nologo"
+
+[tasks.check]
+run = [
+  { task = "lint" },
+  { task = "typecheck" },
+  { task = "test" },
+  { task = "build" },
+]
+
+[tasks.build]
+depends = ["build:dotnet", "build:web"]
+
+[tasks."build:dotnet"]
+run = "dotnet build backend/BookingCalendar.sln -c Release --no-restore --nologo"
+
+[tasks."build:web"]
+run = "npm run build --workspace frontend"
+
+[tasks.dev]
+daemons = ["api", "web"]
+run = "echo API: http://127.0.0.1:5000/api/health - Web: http://127.0.0.1:5173"
+
+[tasks."dev:api"]
+run = "dotnet watch --project backend/BookingCalendar.Api run --no-launch-profile"
+
+[tasks."dev:web"]
+run = "npm run dev --workspace frontend"
+
+[tasks."hooks:install"]
+run = "hk install --mise"
+
+[daemons.api]
+task = "dev:api"
+port = 5000
+ready_http = { url = "http://127.0.0.1:5000/api/health", timeout = "120s" }
+
+[daemons.web]
+task = "dev:web"
+port = 5173
+ready_http = { url = "http://127.0.0.1:5173", timeout = "120s" }

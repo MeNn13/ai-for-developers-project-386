@@ -49,21 +49,92 @@
 
 ## Стек
 
-- Backend - .Net 10 
-- Frontend - React
+- Backend: .NET 10 (LTS), ASP.NET Core Minimal API.
+- Frontend: React 19, TypeScript, Vite 8, Mantine 9.
+- Контракт: TypeSpec 1.17 → OpenAPI 3.0 → TypeScript-клиент (Orval).
+- Тесты: xUnit + `WebApplicationFactory`.
+- Линтеры: анализаторы .NET + `dotnet format`, Oxlint, Prettier.
+- Окружение: mise, hk, pitchfork.
+
+Версии инструментов зафиксированы в `mise.toml` и `mise.lock`, зависимости — в lock-файлах npm и NuGet.
 
 ## Установка
 
-<!-- Опишите установку: клонирование, зависимости, переменные окружения -->
+Нужен [mise](https://mise.jdx.dev/). На Windows:
+
+```powershell
+winget install jdx.mise
+```
+
+На macOS и Linux:
+
+```bash
+curl -fsSL https://mise.run | sh
+```
+
+Затем:
 
 ```bash
 git clone https://github.com/MeNn13/ai-for-developers-project-386.git
 cd ai-for-developers-project-386
+mise trust
+mise install
+mise run install
+mise run hooks:install
+```
+
+`mise install` ставит .NET, Node, pitchfork, hk и вспомогательные линтеры. `mise run install` восстанавливает зависимости .NET и npm.
+
+Для git-хуков `mise` должен быть доступен в `PATH`. В PowerShell включите активацию mise в профиле:
+
+```powershell
+mise activate pwsh | Out-String | Invoke-Expression
 ```
 
 ## Использование
 
-<!-- Добавьте примеры запуска и запись asciinema — именно это смотрит работодатель -->
+Запуск API и фронтенда:
+
+```bash
+mise run dev
+```
+
+- API: http://127.0.0.1:5000/api/health
+- Frontend: http://127.0.0.1:5173
+
+Управление фоновыми процессами:
+
+```bash
+mise daemons status
+mise daemons logs api -n 50
+mise daemons stop
+```
+
+Проверки:
+
+```bash
+mise run check
+```
+
+Команда запускает линтеры, проверку типов, тесты и сборку. CI вызывает её же.
+
+Генерация контракта и клиента:
+
+```bash
+mise run generate
+```
+
+## Структура
+
+```text
+backend/    ASP.NET Core API и xUnit-тесты
+contract/   TypeSpec, OpenAPI и конфигурация Orval
+frontend/   React, Vite, Mantine и сгенерированный клиент
+```
+
+Данные хранятся в памяти процесса: после перезапуска API типы встреч и записи сбрасываются.
+
+CI описан в `.github/workflows/ci.yml` и запускается на каждый push. Файл `.github/workflows/hexlet-check.yml` не редактируется.
 
 ---
 

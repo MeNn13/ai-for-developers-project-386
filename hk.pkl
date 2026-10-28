@@ -1,0 +1,27 @@
+amends "package://github.com/jdx/hk/releases/download/v2.9.0/hk@2.9.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.9.0/hk@2.9.0#/Builtins.pkl"
+
+hooks {
+  ["check"] {
+    steps {
+      ["check"] {
+        check = "mise run check"
+      }
+    }
+  }
+
+  ["commit-msg"] {
+    steps {
+      ["conventional-commit"] = Builtins.check_conventional_commit
+    }
+  }
+
+  ["pre-commit"] {
+    stash = "none"
+    steps {
+      ["check"] {
+        check = "mise run check"
+      }
+    }
+  }
+}
