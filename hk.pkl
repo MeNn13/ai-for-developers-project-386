@@ -24,7 +24,9 @@ hooks {
 
   ["commit-msg"] {
     steps {
-      ["conventional-commit"] = Builtins.check_conventional_commit
+      ["commitlint"] {
+        check = "npx commitlint --edit"
+      }
     }
   }
 
