@@ -1,6 +1,7 @@
 import { MantineProvider } from '@mantine/core'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { UserEvent } from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BookingPage } from './BookingPage'
@@ -12,7 +13,15 @@ vi.mock('../api/generated/booking', () => ({
 }))
 
 import { createMeeting, listMeetingTypes, listSlots } from '../api/generated/booking'
-import type { Meeting, MeetingType, Slot, SlotDay, SlotsResponse } from '../api/generated/booking'
+import type {
+  Meeting,
+  MeetingType,
+  ProblemDetails,
+  Slot,
+  SlotDay,
+  SlotsResponse,
+  createMeetingResponse,
+} from '../api/generated/booking'
 
 const meetingTypes: MeetingType[] = [
   {
@@ -90,6 +99,62 @@ function mockBookingData() {
     status: 200,
     headers: new Headers(),
   })
+}
+
+// Слоты одного дня окна: день приходит первым, остальные дни пустые.
+function dayWithSlots(slots: Slot[]): SlotsResponse {
+  return slotsResponse([{ ...windowDays()[0], slots }, ...windowDays().slice(1)])
+}
+
+// Слоты конкретного дня окна — чтобы проверить сохранение выбранного дня при перезапросе.
+function windowWithSlots(dayIndex: number, slots: Slot[]): SlotsResponse {
+  const days = windowDays().map((day, index) => (index === dayIndex ? { ...day, slots } : day))
+  return slotsResponse(days)
+}
+
+// Тот же слот, что пытались забронировать, но уже занятый: так его отдаёт перезапрос.
+const takenFormerFreeSlot: Slot = { ...freeSlot, available: false }
+const lateFreeSlot: Slot = {
+  start: '2026-11-02T11:00:00+03:00',
+  end: '2026-11-02T11:30:00+03:00',
+  available: true,
+}
+
+// Слоты на втором рабочем дне окна (ср, 4 ноября).
+const laterFreeSlot: Slot = {
+  start: '2026-11-04T10:00:00+03:00',
+  end: '2026-11-04T10:30:00+03:00',
+  available: true,
+}
+const takenLaterFreeSlot: Slot = { ...laterFreeSlot, available: false }
+const takenLaterSlot: Slot = {
+  start: '2026-11-04T10:30:00+03:00',
+  end: '2026-11-04T11:00:00+03:00',
+  available: false,
+}
+
+function rejection(
+  status: 400 | 404 | 409,
+  type: ProblemDetails['type'],
+  errors?: ProblemDetails['errors'],
+): createMeetingResponse {
+  const data: ProblemDetails = {
+    type,
+    title: 'Отказ',
+    status,
+    detail: 'Проверьте выбранные значения.',
+    instance: '/api/meetings',
+    ...(errors ? { errors } : {}),
+  }
+  return { data, status, headers: new Headers() }
+}
+
+// Путь гостя до отправки: тип, свободный слот, имя, «Продолжить».
+async function bookFreeSlotWithName(user: UserEvent, name: string) {
+  await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+  await user.click(await screen.findByRole('button', { name: '10:00–10:30' }))
+  await user.type(screen.getByLabelText('Ваше имя'), name)
+  await user.click(screen.getByRole('button', { name: 'Продолжить' }))
 }
 
 beforeEach(() => {
@@ -446,5 +511,229 @@ describe('booking page', () => {
       'data-selected',
       'true',
     )
+  })
+
+  it('recovers from a slot-taken rejection by re-fetching slots and keeping the type and name', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    // Второй ответ слотов — тот же слот уже занят: так выглядит перезапрос после отказа.
+    vi.mocked(listSlots)
+      .mockResolvedValueOnce({
+        data: dayWithSlots([freeSlot, takenSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+      .mockResolvedValueOnce({
+        data: dayWithSlots([takenFormerFreeSlot, takenSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+    vi.mocked(createMeeting).mockResolvedValueOnce(rejection(409, 'slot-taken'))
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    expect(
+      await screen.findByText('Это время только что заняли. Выберите другое время.'),
+    ).toBeVisible()
+    await waitFor(() => expect(listSlots).toHaveBeenCalledTimes(2))
+
+    // Выбор слота снят, «Продолжить» недоступна до нового выбора.
+    expect(screen.getByRole('button', { name: 'Продолжить' })).toBeDisabled()
+    // Тип и имя сохранены.
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeVisible()
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    // Занятый слот виден с меткой «занято».
+    expect(screen.getByRole('button', { name: '10:00–10:30 занято' })).toBeDisabled()
+    // Автоповтора брони нет.
+    expect(createMeeting).toHaveBeenCalledTimes(1)
+  })
+
+  it('dismisses the rejection plaque when the guest picks another slot', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    // После отказа слот занят, но соседний свободен: с него и начинается восстановление.
+    vi.mocked(listSlots)
+      .mockResolvedValueOnce({
+        data: dayWithSlots([freeSlot, takenSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+      .mockResolvedValueOnce({
+        data: dayWithSlots([takenFormerFreeSlot, lateFreeSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+    vi.mocked(createMeeting).mockResolvedValueOnce(rejection(409, 'slot-taken'))
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    expect(
+      await screen.findByText('Это время только что заняли. Выберите другое время.'),
+    ).toBeVisible()
+
+    await user.click(await screen.findByRole('button', { name: '11:00–11:30' }))
+
+    expect(
+      screen.queryByText('Это время только что заняли. Выберите другое время.'),
+    ).not.toBeInTheDocument()
+    // Имя сохранено, «Продолжить» снова доступна после нового выбора.
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    expect(screen.getByLabelText('Ваше имя')).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Продолжить' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '11:00–11:30' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  it('recovers from a slot-not-bookable rejection keeping type, name and chosen day', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    // Слоты на втором рабочем дне окна (ср, 4 ноября): после отказа день обязан остаться.
+    vi.mocked(listSlots)
+      .mockResolvedValueOnce({
+        data: windowWithSlots(2, [laterFreeSlot, takenLaterSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+      .mockResolvedValueOnce({
+        data: windowWithSlots(2, [takenLaterFreeSlot, takenLaterSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+    vi.mocked(createMeeting).mockResolvedValueOnce(rejection(400, 'slot-not-bookable'))
+
+    renderBookingPage()
+    await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+    await user.click(await screen.findByRole('button', { name: '4 ноября 2026' }))
+    await user.click(await screen.findByRole('button', { name: '10:00–10:30' }))
+    await user.type(screen.getByLabelText('Ваше имя'), 'Анна')
+    await user.click(screen.getByRole('button', { name: 'Продолжить' }))
+
+    expect(await screen.findByText('Это время больше недоступно. Выберите другое.')).toBeVisible()
+    await waitFor(() => expect(listSlots).toHaveBeenCalledTimes(2))
+
+    // Выбранный день и тип сохранены, выбор слота снят, имя на месте.
+    expect(screen.getByRole('button', { name: '4 ноября 2026' })).toHaveAttribute(
+      'data-selected',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeVisible()
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    expect(screen.getByRole('button', { name: '10:00–10:30 занято' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Продолжить' })).toBeDisabled()
+    // Автоповтора брони нет.
+    expect(createMeeting).toHaveBeenCalledTimes(1)
+  })
+
+  it('resets to type selection and re-fetches types when the meeting type disappeared', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting).mockResolvedValueOnce(rejection(404, 'meeting-type-not-found'))
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    expect(
+      await screen.findByText('Этот тип встречи больше недоступен. Выберите другой.'),
+    ).toBeVisible()
+
+    // Сброс к выбору типа: карточки типов видны, сводка выбранного типа — нет.
+    expect(await screen.findByRole('button', { name: /Разбор/ })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Изменить' })).not.toBeInTheDocument()
+    expect(screen.getByText('Выберите тип встречи')).toBeVisible()
+    // Перезапрос типов.
+    await waitFor(() => expect(listMeetingTypes).toHaveBeenCalledTimes(2))
+
+    // Выбор нового типа снимает плашку — отказ не висит вечно.
+    await user.click(screen.getByRole('button', { name: /Разбор/ }))
+    expect(
+      screen.queryByText('Этот тип встречи больше недоступен. Выберите другой.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows the server name error under the field and keeps the form on validation-failed', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting).mockResolvedValueOnce(
+      rejection(400, 'validation-failed', { guestName: ['Имя не может быть пустым.'] }),
+    )
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    // Ошибка errors.guestName показана под полем имени.
+    expect(await screen.findByText('Имя не может быть пустым.')).toBeVisible()
+    // Форма и значения сохранены: слот выбран, имя на месте, «Продолжить» доступна.
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    expect(screen.getByRole('button', { name: '10:00–10:30' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Продолжить' })).toBeEnabled()
+    // Слоты не перезапрашиваются, слот-плашки нет.
+    expect(listSlots).toHaveBeenCalledTimes(1)
+    expect(
+      screen.queryByText('Это время только что заняли. Выберите другое время.'),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Не удалось забронировать встречу')).not.toBeInTheDocument()
+  })
+
+  it('keeps entered values and retries the same request after a network failure', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ data: bookedMeeting, status: 201, headers: new Headers() })
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    expect(await screen.findByText('Не удалось выполнить запрос')).toBeVisible()
+    // Введённые значения сохранены: слот выбран, имя на месте.
+    expect(screen.getByRole('button', { name: '10:00–10:30' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    // Слоты при сетевом отказе не перезапрашиваются.
+    expect(listSlots).toHaveBeenCalledTimes(1)
+
+    // «Повторить» отправляет тот же запрос с теми же значениями.
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+
+    expect(await screen.findByRole('heading', { name: 'Встреча забронирована' })).toBeVisible()
+    expect(createMeeting).toHaveBeenCalledTimes(2)
+    expect(createMeeting).toHaveBeenLastCalledWith({
+      meetingTypeId: 'znakomstvo',
+      start: '2026-11-02T10:00:00+03:00',
+      guestName: 'Анна',
+    })
+  })
+
+  it('treats a server 5xx with an unparsable body as a request failure', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting).mockResolvedValueOnce({
+      data: { message: 'Internal error' },
+      status: 500,
+      headers: new Headers(),
+    } as never)
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    // Та же плашка с повтором, значения сохранены, автоповтора нет.
+    expect(await screen.findByText('Не удалось выполнить запрос')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeVisible()
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    expect(screen.getByRole('button', { name: '10:00–10:30' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(createMeeting).toHaveBeenCalledTimes(1)
+    expect(listSlots).toHaveBeenCalledTimes(1)
   })
 })
