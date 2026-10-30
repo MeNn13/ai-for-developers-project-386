@@ -7,10 +7,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace BookingCalendar.Api.Tests;
 
-// Р”РѕРєР°Р·Р°С‚РµР»СЊСЃС‚РІРѕ Р°С‚РѕРјР°СЂРЅРѕСЃС‚Рё РёР· ADR 0001 Рё Testing Decisions #6: 10 РѕРґРЅРѕРІСЂРµРјРµРЅРЅС‹С…
-// POST РЅР° РѕРґРёРЅ СЃС‚Р°СЂС‚, СЂРѕРІРЅРѕ РѕРґРёРЅ 201, РґРµРІСЏС‚СЊ 409 slot-taken, РЅРё РѕРґРЅРѕРіРѕ 500;
-// С„РёРЅР°Р»СЊРЅС‹Р№ GET РїРѕРєР°Р·С‹РІР°РµС‚ СЂРѕРІРЅРѕ РѕРґРЅСѓ РІСЃС‚СЂРµС‡Сѓ СЌС‚РѕРіРѕ СЂР°СѓРЅРґР°. 20 СЂР°СѓРЅРґРѕРІ, РІ РєР°Р¶РґРѕРј
-// СЃРІРµР¶РёР№ С‚РёРї РІСЃС‚СЂРµС‡Рё Рё СЃРІРѕР№ СЃС‚Р°СЂС‚. Р‘РµР· Thread.Sleep Рё Task.Delay.
+// Доказательство атомарности из ADR 0001 и Testing Decisions #6: 10 одновременных
+// POST на один старт, ровно один 201, девять 409 slot-taken, ни одного 500;
+// финальный GET показывает ровно одну встречу этого раунда. 20 раундов, в каждом
+// свежий тип встречи и свой старт. Без Thread.Sleep и Task.Delay.
 public class BookingAtomicityTests(TestApp app) : IClassFixture<TestApp>
 {
     private const int ParallelRequests = 10;
@@ -25,14 +25,14 @@ public class BookingAtomicityTests(TestApp app) : IClassFixture<TestApp>
         for (var round = 0; round < Rounds; round++)
         {
             var typeId = $"race-{round}";
-            using (var typeResponse = await MeetingHttp.CreateMeetingTypeAsync(client, typeId, "Р“РѕРЅРєР°", 30))
+            using (var typeResponse = await MeetingHttp.CreateMeetingTypeAsync(client, typeId, "Гонка", 30))
             {
                 typeResponse.EnsureSuccessStatusCode();
             }
 
             var start = RoundStart(round);
             var responses = await Task.WhenAll(Enumerable.Range(0, ParallelRequests)
-                .Select(_ => MeetingHttp.CreateMeetingAsync(client, typeId, start, "Р“РѕРЅРєР°")));
+                .Select(_ => MeetingHttp.CreateMeetingAsync(client, typeId, start, "Гонка")));
 
             try
             {
@@ -64,7 +64,7 @@ public class BookingAtomicityTests(TestApp app) : IClassFixture<TestApp>
         }
     }
 
-    // РЎС‚Р°СЂС‚С‹ РёРґСѓС‚ РїРѕ СЃРµС‚РєРµ: 16 СЃС‚Р°СЂС‚РѕРІ РІ РґРµРЅСЊ, РґР°Р»СЊС€Рµ СЃР»РµРґСѓСЋС‰РёР№ СЂР°Р±РѕС‡РёР№ РґРµРЅСЊ.
+    // Старты идут по сетке: 16 стартов в день, дальше следующий рабочий день.
     private static DateTimeOffset RoundStart(int round)
     {
         var day = 2 + (round / SlotRules.GridStartsPerDay);
