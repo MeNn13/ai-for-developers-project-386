@@ -10,7 +10,7 @@ vi.mock('../api/generated/booking', () => ({
 }))
 
 import { createMeetingType, listMeetingTypes } from '../api/generated/booking'
-import type { MeetingType } from '../api/generated/booking'
+import type { MeetingType, createMeetingTypeResponse } from '../api/generated/booking'
 
 function renderOwnerPage() {
   return render(
@@ -221,5 +221,67 @@ describe('owner page', () => {
     // Остальные значения сохраняются.
     expect(title).toHaveValue('Знакомство')
     expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+  })
+
+  it('disables the create button while the form is invalid', async () => {
+    mockEmptyTypes()
+    renderOwnerPage()
+
+    // Пустые обязательные название и id делают форму невалидной сразу.
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled()
+  })
+
+  it('validates fields on blur and keeps the errors under them', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    const id = screen.getByLabelText('Идентификатор')
+    const duration = screen.getByLabelText('Длительность, мин')
+
+    await user.click(title)
+    await user.tab()
+    expect(await screen.findByText('Укажите название')).toBeVisible()
+
+    await user.type(id, 'ABC')
+    await user.tab()
+    expect(await screen.findByText('Только строчные латинские буквы, цифры и дефис')).toBeVisible()
+
+    await user.click(duration)
+    await user.clear(duration)
+    await user.type(duration, '17')
+    await user.tab()
+    expect(await screen.findByText('Длительность кратна 5 минутам')).toBeVisible()
+
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled()
+  })
+
+  it('locks the fields and blocks double submit while the request is in flight', async () => {
+    mockEmptyTypes()
+    let resolveCreate: ((value: createMeetingTypeResponse) => void) | undefined
+    vi.mocked(createMeetingType).mockImplementation(
+      () =>
+        new Promise<createMeetingTypeResponse>((resolve) => {
+          resolveCreate = resolve
+        }),
+    )
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+
+    const create = screen.getByRole('button', { name: 'Создать' })
+    await user.click(create)
+    await user.click(create)
+
+    expect(createMeetingType).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('Название')).toBeDisabled()
+    expect(screen.getByLabelText('Идентификатор')).toBeDisabled()
+
+    resolveCreate?.({ data: firstType, status: 201, headers: new Headers() })
+
+    expect(await screen.findByText('Тип встречи создан')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toBeEnabled()
   })
 })

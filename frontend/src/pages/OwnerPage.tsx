@@ -44,6 +44,50 @@ type TypesState =
   | { status: 'error'; types: [] }
   | { status: 'ready'; types: MeetingType[] }
 
+type FieldName = 'title' | 'description' | 'durationMinutes' | 'id'
+
+const idPattern = /^[a-z0-9-]+$/
+
+// Локальная валидация зеркалит ограничения контракта (MeetingTypeCreateRequest);
+// расхождение с сервером поправит 400 validation-failed.
+function validate(values: {
+  title: string
+  description: string
+  duration: number | string
+  id: string
+}): Partial<Record<FieldName, string>> {
+  const errors: Partial<Record<FieldName, string>> = {}
+
+  if (values.title.trim() === '') {
+    errors.title = 'Укажите название'
+  }
+
+  if (values.description.length > DESCRIPTION_MAX_LENGTH) {
+    errors.description = `Описание не длиннее ${DESCRIPTION_MAX_LENGTH} символов`
+  }
+
+  const duration = Number(values.duration)
+  if (values.duration === '' || !Number.isFinite(duration)) {
+    errors.durationMinutes = 'Укажите длительность'
+  } else if (!Number.isInteger(duration)) {
+    errors.durationMinutes = 'Длительность считается целым числом минут'
+  } else if (duration < DURATION_MIN_MINUTES || duration > DURATION_MAX_MINUTES) {
+    errors.durationMinutes = `Длительность от ${DURATION_MIN_MINUTES} до ${DURATION_MAX_MINUTES} минут`
+  } else if (duration % DURATION_STEP_MINUTES !== 0) {
+    errors.durationMinutes = 'Длительность кратна 5 минутам'
+  }
+
+  if (values.id === '') {
+    errors.id = 'Укажите идентификатор'
+  } else if (!idPattern.test(values.id)) {
+    errors.id = 'Только строчные латинские буквы, цифры и дефис'
+  } else if (values.id.length > ID_MAX_LENGTH) {
+    errors.id = `Идентификатор не длиннее ${ID_MAX_LENGTH} символов`
+  }
+
+  return errors
+}
+
 async function fetchTypes(): Promise<TypesState> {
   try {
     const response = await listMeetingTypes()
@@ -80,6 +124,8 @@ export function OwnerPage() {
   // id отвязан от названия после первой ручной правки; пустое значение возвращает связь.
   const [idDetached, setIdDetached] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({})
+  // Локальные ошибки показываем после blur поля или попытки отправки.
+  const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({})
   const [createError, setCreateError] = useState<string | null>(null)
   const [created, setCreated] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -89,8 +135,26 @@ export function OwnerPage() {
     fetchTypes().then(setTypesState)
   }, [])
 
+  function markTouched(field: FieldName) {
+    setTouched((prev) => ({ ...prev, [field]: true }))
+  }
+
+  // Правка поля снимает серверную ошибку по нему — значение уже изменено,
+  // старый текст больше не относится к делу.
+  function clearServerError(field: FieldName) {
+    setFieldErrors((prev) => {
+      if (prev[field] === undefined) {
+        return prev
+      }
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
+
   function handleTitleChange(value: string) {
     setTitle(value)
+    clearServerError('title')
     if (!idDetached) {
       setId(transliterate(value))
     }
@@ -98,10 +162,25 @@ export function OwnerPage() {
 
   function handleIdChange(value: string) {
     setId(value)
+    clearServerError('id')
     setIdDetached(value !== '')
   }
 
+  function handleDescriptionChange(value: string) {
+    setDescription(value)
+    clearServerError('description')
+  }
+
+  function handleDurationChange(value: number | string) {
+    setDuration(value)
+    clearServerError('durationMinutes')
+  }
+
   async function createType() {
+    if (saving) {
+      return
+    }
+
     setSaving(true)
     setCreated(false)
     setCreateError(null)
@@ -122,6 +201,7 @@ export function OwnerPage() {
         setDuration(DURATION_DEFAULT_MINUTES)
         setId('')
         setIdDetached(false)
+        setTouched({})
         setCreated(true)
         setTypesState(await fetchTypes())
         return
@@ -159,12 +239,29 @@ export function OwnerPage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setTouched({ title: true, description: true, durationMinutes: true, id: true })
+    if (saving || formInvalid) {
+      return
+    }
+    void createType()
+  }
+
+  function retry() {
     void createType()
   }
 
   // Коллизия видна до отправки: id совпадает с уже созданным типом из загруженного
   // списка. Суффиксы вида «-2» не добавляются — владелец правит id сам (спека #17).
   const collides = id !== '' && typesState.types.some((type) => type.id === id)
+
+  const localErrors = validate({ title, description, duration, id })
+  const formInvalid = Object.keys(localErrors).length > 0 || collides
+
+  function shownError(field: FieldName): string | undefined {
+    return fieldErrors[field]?.[0] ?? (touched[field] ? localErrors[field] : undefined)
+  }
+
+  const idError = shownError('id') ?? (collides ? ID_TAKEN : undefined)
 
   return (
     <Container size="lg" py="xl">
@@ -183,7 +280,10 @@ export function OwnerPage() {
 
             {createError && (
               <Alert color="red" withCloseButton={false}>
-                {createError}
+                {createError}{' '}
+                <Button type="button" variant="outline" size="xs" disabled={saving} onClick={retry}>
+                  Повторить
+                </Button>
               </Alert>
             )}
 
@@ -191,40 +291,48 @@ export function OwnerPage() {
               label="Название"
               value={title}
               onChange={(event) => handleTitleChange(event.currentTarget.value)}
+              onBlur={() => markTouched('title')}
+              disabled={saving}
               maxLength={TITLE_MAX_LENGTH}
-              error={fieldErrors.title?.[0]}
+              error={shownError('title')}
             />
 
             <Textarea
               label="Описание"
               value={description}
-              onChange={(event) => setDescription(event.currentTarget.value)}
+              onChange={(event) => handleDescriptionChange(event.currentTarget.value)}
+              onBlur={() => markTouched('description')}
+              disabled={saving}
               maxLength={DESCRIPTION_MAX_LENGTH}
-              error={fieldErrors.description?.[0]}
+              error={shownError('description')}
             />
 
             <NumberInput
               label="Длительность, мин"
               value={duration}
-              onChange={setDuration}
+              onChange={handleDurationChange}
+              onBlur={() => markTouched('durationMinutes')}
+              disabled={saving}
               min={DURATION_MIN_MINUTES}
               max={DURATION_MAX_MINUTES}
               step={DURATION_STEP_MINUTES}
-              error={fieldErrors.durationMinutes?.[0]}
+              error={shownError('durationMinutes')}
             />
 
             <TextInput
               label="Идентификатор"
               value={id}
               onChange={(event) => handleIdChange(event.currentTarget.value)}
+              onBlur={() => markTouched('id')}
+              disabled={saving}
               maxLength={ID_MAX_LENGTH}
               description={idDetached ? undefined : ID_HINT}
               inputWrapperOrder={['label', 'input', 'description', 'error']}
-              error={fieldErrors.id?.[0] ?? (collides ? ID_TAKEN : undefined)}
+              error={idError}
             />
 
             <Group>
-              <Button type="submit" loading={saving} disabled={saving || collides}>
+              <Button type="submit" loading={saving} disabled={saving || formInvalid}>
                 Создать
               </Button>
             </Group>
