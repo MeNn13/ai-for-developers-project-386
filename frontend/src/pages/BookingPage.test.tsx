@@ -712,4 +712,28 @@ describe('booking page', () => {
       guestName: 'Анна',
     })
   })
+
+  it('treats a server 5xx with an unparsable body as a request failure', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting).mockResolvedValueOnce({
+      data: { message: 'Internal error' },
+      status: 500,
+      headers: new Headers(),
+    } as never)
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    // Та же плашка с повтором, значения сохранены, автоповтора нет.
+    expect(await screen.findByText('Не удалось выполнить запрос')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeVisible()
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    expect(screen.getByRole('button', { name: '10:00–10:30' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(createMeeting).toHaveBeenCalledTimes(1)
+    expect(listSlots).toHaveBeenCalledTimes(1)
+  })
 })
