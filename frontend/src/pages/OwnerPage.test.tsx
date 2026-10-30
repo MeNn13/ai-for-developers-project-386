@@ -284,4 +284,73 @@ describe('owner page', () => {
     expect(await screen.findByText('Тип встречи создан')).toBeVisible()
     expect(screen.getByLabelText('Название')).toBeEnabled()
   })
+
+  it('keeps the values and offers a retry when the network fails', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ data: firstType, status: 201, headers: new Headers() })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Не удалось создать тип встречи')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toHaveValue('Знакомство')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+
+    expect(await screen.findByText('Тип встречи создан')).toBeVisible()
+    expect(createMeetingType).toHaveBeenCalledTimes(2)
+    expect(createMeetingType).toHaveBeenLastCalledWith({
+      id: 'znakomstvo',
+      title: 'Знакомство',
+      description: '',
+      durationMinutes: 30,
+    })
+  })
+
+  it('distributes server validation-failed errors under the fields and keeps the values', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: {
+        type: 'validation-failed',
+        title: 'Запрос некорректен',
+        status: 400,
+        detail: 'Проверьте введённые значения.',
+        instance: '/api/meeting-types',
+        errors: { durationMinutes: ['Длительность должна быть кратна 5 минутам.'] },
+      },
+      status: 400,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Длительность должна быть кратна 5 минутам.')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toHaveValue('Знакомство')
+    expect(screen.queryByText('Не удалось создать тип встречи')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the failure plaque when the error body is not ProblemDetails', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: { message: 'Internal error' },
+      status: 500,
+      headers: new Headers(),
+    } as never)
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Не удалось создать тип встречи')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toHaveValue('Знакомство')
+  })
 })
