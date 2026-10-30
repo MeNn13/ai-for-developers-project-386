@@ -16,11 +16,20 @@ public sealed class CalendarStore
         }
     }
 
-    public void Add(MeetingType meetingType)
+    public bool TryAdd(MeetingType meetingType)
     {
         lock (this)
         {
+            foreach (var existing in _meetingTypes)
+            {
+                if (string.Equals(existing.Id, meetingType.Id, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
             _meetingTypes.Add(meetingType);
+            return true;
         }
     }
 }
