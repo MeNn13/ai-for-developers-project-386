@@ -21,13 +21,9 @@ app.MapGet("/api/health", () => new HealthResponse("ok"));
 
 app.MapMeetingTypeEndpoints();
 
-// An unknown API route answers 404 instead of falling through to the SPA
-// fallback below, which would return HTML with 200.
-app.Map("/api/{**rest}", (HttpContext context) =>
-{
-    context.Response.StatusCode = StatusCodes.Status404NotFound;
-    return Task.CompletedTask;
-});
+// An unknown API route answers 404 with a ProblemDetails body instead of falling
+// through to the SPA fallback below, which would return HTML with 200.
+app.Map("/api/{**rest}", (HttpRequest request) => Problems.NotFound(request.Path.ToString()));
 
 // Deep links to the SPA (/book, /owner) have no file on disk, so the fallback
 // returns index.html and the router takes over.
