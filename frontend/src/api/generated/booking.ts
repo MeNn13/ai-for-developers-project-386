@@ -23,6 +23,104 @@ export interface HealthResponse {
   status: HealthResponseStatus;
 }
 
+/**
+ * Тип встречи: шаблон с названием, описанием и длительностью.
+ */
+export interface MeetingType {
+  /**
+     * Короткий идентификатор типа встречи.
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-z0-9-]+$
+     */
+  id: string;
+  /**
+     * Название типа встречи.
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * Описание для гостя; пустая строка допустима.
+     * @maxLength 500
+     */
+  description: string;
+  /**
+     * Длительность встречи в минутах.
+     * @minimum 15
+     * @maximum 480
+     */
+  durationMinutes: number;
+}
+
+/**
+ * Запрос на создание типа встречи.
+ */
+export interface MeetingTypeCreateRequest {
+  /**
+     * Короткий идентификатор типа встречи.
+     * @minLength 1
+     * @maxLength 64
+     * @pattern ^[a-z0-9-]+$
+     */
+  id: string;
+  /**
+     * Название типа встречи.
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * Описание для гостя; пустая строка допустима.
+     * @maxLength 500
+     */
+  description: string;
+  /**
+     * Длительность встречи в минутах.
+     * @minimum 15
+     * @maximum 480
+     */
+  durationMinutes: number;
+}
+
+/**
+ * Короткий slug ошибки.
+ */
+export type ProblemDetailsType = typeof ProblemDetailsType[keyof typeof ProblemDetailsType];
+
+
+export const ProblemDetailsType = {
+  'validation-failed': 'validation-failed',
+  'slot-not-bookable': 'slot-not-bookable',
+  'meeting-type-not-found': 'meeting-type-not-found',
+  'not-found': 'not-found',
+  'meeting-type-exists': 'meeting-type-exists',
+  'slot-taken': 'slot-taken',
+} as const;
+
+/**
+ * Сообщения по полям; присутствует только у ошибки validation-failed.
+ */
+export type ProblemDetailsErrors = {[key: string]: string[]};
+
+/**
+ * Описание ошибки в формате RFC 7807 Problem Details.
+ */
+export interface ProblemDetails {
+  /** Короткий slug ошибки. */
+  type: ProblemDetailsType;
+  /** Краткий заголовок ошибки для человека. */
+  title: string;
+  /** HTTP-код ответа. */
+  status: number;
+  /** Понятное описание ошибки для человека. */
+  detail: string;
+  /** Путь запроса, на котором произошла ошибка. */
+  instance: string;
+  /** Сообщения по полям; присутствует только у ошибки validation-failed. */
+  errors?: ProblemDetailsErrors;
+}
+
 export type getHealthResponse200 = {
   data: HealthResponse
   status: 200
@@ -62,4 +160,116 @@ export const getHealth = async ( options?: RequestInit): Promise<getHealthRespon
 
   const data: getHealthResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as getHealthResponse
+}
+
+
+
+export type listMeetingTypesResponse200 = {
+  data: MeetingType[]
+  status: 200
+}
+
+export type listMeetingTypesResponseSuccess = (listMeetingTypesResponse200) & {
+  headers: Headers;
+};
+;
+
+export type listMeetingTypesResponse = (listMeetingTypesResponseSuccess)
+
+export const getListMeetingTypesUrl = () => {
+
+
+
+
+  return `/api/meeting-types`
+}
+
+/**
+ * Возвращает типы встреч в порядке создания; новый тип — в конце списка.
+ */
+export const listMeetingTypes = async ( options?: RequestInit): Promise<listMeetingTypesResponse> => {
+
+  const res = await fetch(getListMeetingTypesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listMeetingTypesResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listMeetingTypesResponse
+}
+
+
+
+export type createMeetingTypeResponse201 = {
+  data: MeetingType
+  status: 201
+}
+
+export type createMeetingTypeResponse400 = {
+  data: ProblemDetails
+  status: 400
+}
+
+export type createMeetingTypeResponse409 = {
+  data: ProblemDetails
+  status: 409
+}
+
+export type createMeetingTypeResponseSuccess = (createMeetingTypeResponse201) & {
+  headers: Headers;
+};
+export type createMeetingTypeResponseError = (createMeetingTypeResponse400 | createMeetingTypeResponse409) & {
+  headers: Headers;
+};
+
+export type createMeetingTypeResponse = (createMeetingTypeResponseSuccess | createMeetingTypeResponseError)
+
+export const getCreateMeetingTypeUrl = () => {
+
+
+
+
+  return `/api/meeting-types`
+}
+
+/**
+ * Создаёт тип встречи и возвращает созданный тип.
+ */
+export const createMeetingType = async (meetingTypeCreateRequest: MeetingTypeCreateRequest, options?: RequestInit): Promise<createMeetingTypeResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+const res = await fetch(getCreateMeetingTypeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(meetingTypeCreateRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createMeetingTypeResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as createMeetingTypeResponse
 }
