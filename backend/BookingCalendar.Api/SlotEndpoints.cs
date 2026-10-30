@@ -4,7 +4,8 @@ using BookingCalendar.Api.Storage;
 namespace BookingCalendar.Api;
 
 // Слоты выбранного типа встречи на всё окно записи: один снимок на запрос.
-// now читается один раз, правила слота — чистые (Domain.SlotRules).
+// Тип, now и занятость приходят из хранилища одним чтением под lock (ADR 0001),
+// правила слота — чистые (Domain.SlotRules).
 internal static class SlotEndpoints
 {
     public static IEndpointRouteBuilder MapSlotEndpoints(this IEndpointRouteBuilder endpoints)
@@ -16,7 +17,6 @@ internal static class SlotEndpoints
     private static IResult ListSlots(
         string? meetingTypeId,
         CalendarStore store,
-        TimeProvider timeProvider,
         HttpRequest request)
     {
         var instance = request.Path.ToString();
@@ -32,16 +32,17 @@ internal static class SlotEndpoints
                 });
         }
 
-        var now = timeProvider.GetUtcNow();
-        var meetingType = store.FindMeetingType(meetingTypeId);
-        if (meetingType is null)
+        // ADR 0001: тип встречи, now и занятость читаются одним снимком под lock.
+        var snapshot = store.ReadSlotSnapshot(meetingTypeId);
+        if (snapshot is null)
         {
             return Problems.MeetingTypeNotFound(instance);
         }
 
-        // ADR 0001: снимок встреч читается под тем же lock, что и типы встреч.
-        var occupied = store.ListOccupiedIntervals();
-        var response = SlotRules.BuildResponse(meetingType.DurationMinutes, now, occupied);
+        var response = SlotRules.BuildResponse(
+            snapshot.Value.DurationMinutes,
+            snapshot.Value.Now,
+            snapshot.Value.Occupied);
         return Results.Json(response);
     }
 }

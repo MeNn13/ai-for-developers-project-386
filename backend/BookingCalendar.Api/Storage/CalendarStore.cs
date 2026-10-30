@@ -14,6 +14,13 @@ public enum BookingOutcome
 // Результат бронирования: исход и созданная встреча (только у Created).
 public readonly record struct BookingResult(BookingOutcome Outcome, Meeting? Meeting);
 
+// Снимок для правил слотов: длительность выбранного типа, момент чтения и
+// занятые интервалы. Все части прочитаны под одним lock (ADR 0001).
+public readonly record struct SlotSnapshot(
+    int DurationMinutes,
+    DateTimeOffset Now,
+    IReadOnlyList<OccupiedInterval> Occupied);
+
 // ADR 0001: все обращения к данным идут под единым lock на объекте хранилища.
 // Внутри критической секции — только работа с памятью, без await и ввода-вывода.
 public sealed class CalendarStore(TimeProvider timeProvider)
@@ -29,11 +36,24 @@ public sealed class CalendarStore(TimeProvider timeProvider)
         }
     }
 
-    public MeetingType? FindMeetingType(string id)
+    // Снимок слотов одним чтением: тип встречи, now и занятость под одним lock,
+    // иначе ответ мог бы смешать состояния до и после параллельного бронирования.
+    public SlotSnapshot? ReadSlotSnapshot(string meetingTypeId)
     {
         lock (this)
         {
-            return _meetingTypes.Find(type => string.Equals(type.Id, id, StringComparison.Ordinal));
+            var now = timeProvider.GetUtcNow();
+            var meetingType = _meetingTypes.Find(type =>
+                string.Equals(type.Id, meetingTypeId, StringComparison.Ordinal));
+            if (meetingType is null)
+            {
+                return null;
+            }
+
+            var occupied = _meetings
+                .Select(meeting => new OccupiedInterval(meeting.Start, meeting.End))
+                .ToArray();
+            return new SlotSnapshot(meetingType.DurationMinutes, now, occupied);
         }
     }
 
@@ -103,15 +123,6 @@ public sealed class CalendarStore(TimeProvider timeProvider)
         {
             var now = timeProvider.GetUtcNow();
             return [.. _meetings.Where(meeting => meeting.End > now).OrderBy(meeting => meeting.Start)];
-        }
-    }
-
-    // Снимок занятости для правил слотов: интервалы встреч любых типов.
-    public IReadOnlyList<OccupiedInterval> ListOccupiedIntervals()
-    {
-        lock (this)
-        {
-            return [.. _meetings.Select(meeting => new OccupiedInterval(meeting.Start, meeting.End))];
         }
     }
 }
