@@ -9,6 +9,7 @@ import { AppRoutes } from './App'
 // мокается на границе модуля, чтобы тесты роутинга не зависели от fetch.
 vi.mock('./api/generated/booking', () => ({
   listMeetingTypes: vi.fn(async () => ({ data: [], status: 200, headers: new Headers() })),
+  listSlots: vi.fn(),
   createMeetingType: vi.fn(),
 }))
 
@@ -50,7 +51,7 @@ describe('main page', () => {
     await user.click(screen.getByRole('link', { name: 'Записаться' }))
 
     expect(screen.getByRole('heading', { level: 1, name: 'Бронирование' })).toBeVisible()
-    expect(screen.getByText('Раздел в разработке')).toBeVisible()
+    expect(await screen.findByText('Типы встреч ещё не созданы')).toBeVisible()
   })
 
   it('opens the owner page from the header', async () => {

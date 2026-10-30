@@ -121,6 +121,57 @@ export interface ProblemDetails {
   errors?: ProblemDetailsErrors;
 }
 
+/**
+ * Слот: интервал, который начинается в точке сетки стартов и длится столько же, сколько выбранный тип встречи.
+ */
+export interface Slot {
+  /** Начало слота по московскому времени. */
+  start: string;
+  /** Конец слота: начало плюс длительность типа встречи. */
+  end: string;
+  /** Свободен ли слот: true — можно бронировать, false — пересекается со встречей. */
+  available: boolean;
+}
+
+/**
+ * День окна записи со слотами выбранного типа; у выходного дня и дня без кандидатов массив пуст.
+ */
+export interface SlotDay {
+  /** Дата дня в формате YYYY-MM-DD. */
+  date: string;
+  /** Слоты дня по возрастанию начала. */
+  slots: Slot[];
+}
+
+/**
+ * Границы окна записи.
+ */
+export interface SlotWindow {
+  /** Первый день окна — сегодня по московскому времени. */
+  from: string;
+  /** Последний день окна — сегодня плюс 13 дней. */
+  to: string;
+}
+
+/**
+ * Снимок слотов на 14 дней вперёд для выбранного типа встречи.
+ */
+export interface SlotsResponse {
+  /** Часовой пояс, в котором отданы даты и время. */
+  timezone: string;
+  /** Границы окна записи. */
+  window: SlotWindow;
+  /** Ровно 14 дней по возрастанию даты, включая выходные и дни без кандидатов. */
+  days: SlotDay[];
+}
+
+export type ListSlotsParams = {
+/**
+ * Идентификатор типа встречи, для которого считаются слоты.
+ */
+meetingTypeId: string;
+};
+
 export type getHealthResponse200 = {
   data: HealthResponse
   status: 200
@@ -272,4 +323,66 @@ const res = await fetch(getCreateMeetingTypeUrl(),
 
   const data: createMeetingTypeResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as createMeetingTypeResponse
+}
+
+
+
+export type listSlotsResponse200 = {
+  data: SlotsResponse
+  status: 200
+}
+
+export type listSlotsResponse400 = {
+  data: ProblemDetails
+  status: 400
+}
+
+export type listSlotsResponse404 = {
+  data: ProblemDetails
+  status: 404
+}
+
+export type listSlotsResponseSuccess = (listSlotsResponse200) & {
+  headers: Headers;
+};
+export type listSlotsResponseError = (listSlotsResponse400 | listSlotsResponse404) & {
+  headers: Headers;
+};
+
+export type listSlotsResponse = (listSlotsResponseSuccess | listSlotsResponseError)
+
+export const getListSlotsUrl = (params: ListSlotsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/slots?${stringifiedParams}` : `/api/slots`
+}
+
+/**
+ * Возвращает снимок слотов выбранного типа встречи на 14 дней вперёд.
+ */
+export const listSlots = async (params: ListSlotsParams, options?: RequestInit): Promise<listSlotsResponse> => {
+
+  const res = await fetch(getListSlotsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listSlotsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listSlotsResponse
 }

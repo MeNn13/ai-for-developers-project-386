@@ -77,6 +77,47 @@ op createMeetingType(@body body: MeetingTypeCreateRequest):
   | ValidationError
   | MeetingTypeExistsError;
 
+@route("/slots")
+@get
+@tag("slots")
+@doc("Возвращает снимок слотов выбранного типа встречи на 14 дней вперёд.")
+@operationId("listSlots")
+@opExample(
+  #{
+    returnType: #{
+      statusCode: 400,
+      body: #{
+        type: "validation-failed",
+        title: "Запрос некорректен",
+        status: 400,
+        detail: "Параметр meetingTypeId обязателен.",
+        instance: "/api/slots",
+        errors: #{
+          meetingTypeId: #["Параметр «meetingTypeId» обязателен"],
+        },
+      },
+    },
+  },
+  #{ description: "Запрос без обязательного параметра meetingTypeId." }
+)
+@opExample(
+  #{
+    returnType: #{
+      statusCode: 404,
+      body: #{
+        type: "meeting-type-not-found",
+        title: "Не найдено",
+        status: 404,
+        detail: "Тип встречи с таким id не найден.",
+        instance: "/api/slots",
+      },
+    },
+  },
+  #{ description: "Неизвестный meetingTypeId." }
+)
+op listSlots(@query @doc("Идентификатор типа встречи, для которого считаются слоты.")
+  meetingTypeId: string): SlotsResponse | ValidationError | MeetingTypeNotFoundError;
+
 @doc("Тип встречи: шаблон с названием, описанием и длительностью.")
 @example(#{
   id: "znakomstvo",
@@ -137,6 +178,77 @@ model MeetingTypeCreateRequest {
   durationMinutes: int32;
 }
 
+@doc("Слот: интервал, который начинается в точке сетки стартов и длится столько же, сколько выбранный тип встречи.")
+@example(#{
+  start: offsetDateTime.fromISO("2026-11-02T10:00:00+03:00"),
+  end: offsetDateTime.fromISO("2026-11-02T10:30:00+03:00"),
+  available: true,
+})
+model Slot {
+  @doc("Начало слота по московскому времени.")
+  start: offsetDateTime;
+
+  @doc("Конец слота: начало плюс длительность типа встречи.")
+  end: offsetDateTime;
+
+  @doc("Свободен ли слот: true — можно бронировать, false — пересекается со встречей.")
+  available: boolean;
+}
+
+@doc("День окна записи со слотами выбранного типа; у выходного дня и дня без кандидатов массив пуст.")
+@example(#{
+  date: plainDate.fromISO("2026-11-02"),
+  slots: #[
+    #{ start: offsetDateTime.fromISO("2026-11-02T10:00:00+03:00"), end: offsetDateTime.fromISO("2026-11-02T10:30:00+03:00"), available: true },
+  ],
+})
+model SlotDay {
+  @doc("Дата дня в формате YYYY-MM-DD.")
+  date: plainDate;
+
+  @doc("Слоты дня по возрастанию начала.")
+  slots: Slot[];
+}
+
+@doc("Границы окна записи.")
+@example(#{
+  from: plainDate.fromISO("2026-11-02"),
+  to: plainDate.fromISO("2026-11-15"),
+})
+model SlotWindow {
+  @doc("Первый день окна — сегодня по московскому времени.")
+  from: plainDate;
+
+  @doc("Последний день окна — сегодня плюс 13 дней.")
+  to: plainDate;
+}
+
+@doc("Снимок слотов на 14 дней вперёд для выбранного типа встречи.")
+@example(#{
+  timezone: "Europe/Moscow",
+  window: #{ from: plainDate.fromISO("2026-11-02"), to: plainDate.fromISO("2026-11-15") },
+  days: #[
+    #{
+      date: plainDate.fromISO("2026-11-02"),
+      slots: #[
+        #{ start: offsetDateTime.fromISO("2026-11-02T10:00:00+03:00"), end: offsetDateTime.fromISO("2026-11-02T10:30:00+03:00"), available: true },
+        #{ start: offsetDateTime.fromISO("2026-11-02T10:30:00+03:00"), end: offsetDateTime.fromISO("2026-11-02T11:00:00+03:00"), available: false },
+      ],
+    },
+    #{ date: plainDate.fromISO("2026-11-03"), slots: #[] },
+  ],
+})
+model SlotsResponse {
+  @doc("Часовой пояс, в котором отданы даты и время.")
+  timezone: string;
+
+  @doc("Границы окна записи.")
+  window: SlotWindow;
+
+  @doc("Ровно 14 дней по возрастанию даты, включая выходные и дни без кандидатов.")
+  days: SlotDay[];
+}
+
 alias ErrorSlug =
   | "validation-failed"
   | "slot-not-bookable"
@@ -195,6 +307,15 @@ model ValidationError {
 model MeetingTypeExistsError {
   @statusCode
   statusCode: 409;
+
+  @body
+  body: ProblemDetails;
+}
+
+@doc("Тип встречи с таким id не найден.")
+model MeetingTypeNotFoundError {
+  @statusCode
+  statusCode: 404;
 
   @body
   body: ProblemDetails;

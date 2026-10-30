@@ -127,6 +127,15 @@ internal sealed class OpenApiContract
                     break;
                 case "nullable":
                     break;
+                // TypeSpec оборачивает ссылку на вложенную модель в allOf, чтобы
+                // добавить описание свойства; раскрываем и сливаем подсхемы.
+                case "allOf":
+                    foreach (var item in pair.Value!.AsArray())
+                    {
+                        Merge(result, ConvertSchema(item!));
+                    }
+
+                    break;
                 case "items" or "additionalProperties" when pair.Value is JsonObject:
                     result[pair.Key] = ConvertSchema(pair.Value);
                     break;
@@ -151,6 +160,38 @@ internal sealed class OpenApiContract
         }
 
         return result;
+    }
+
+    private static void Merge(JsonObject target, JsonObject source)
+    {
+        foreach (var pair in source)
+        {
+            if (pair.Key == "properties"
+                && pair.Value is JsonObject properties
+                && target["properties"] is JsonObject existingProperties)
+            {
+                foreach (var property in properties)
+                {
+                    existingProperties[property.Key] = property.Value?.DeepClone();
+                }
+
+                continue;
+            }
+
+            if (pair.Key == "required"
+                && pair.Value is JsonArray required
+                && target["required"] is JsonArray existingRequired)
+            {
+                foreach (var value in required)
+                {
+                    existingRequired.Add(value?.DeepClone());
+                }
+
+                continue;
+            }
+
+            target[pair.Key] = pair.Value?.DeepClone();
+        }
     }
 
     // Ссылки вида "#/components/schemas/Name" раскрываются рекурсией; циклов модели не содержат.

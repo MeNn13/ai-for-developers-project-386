@@ -83,10 +83,29 @@ public class ContractConformanceTests(TestApp app) : IClassFixture<TestApp>
         string path,
         string method) => method switch
         {
-            "get" => await client.GetAsync(path),
+            "get" => await client.GetAsync(await UrlWithRequiredParametersAsync(client, path)),
             "post" => await client.PostAsync(path, ContractRequestContent(path, method)),
             _ => throw new NotSupportedException($"Метод «{method}» не поддерживается тестом."),
         };
+
+    // listSlots требует meetingTypeId: тип встречи готовится только публичным HTTP,
+    // сид напрямую в хранилище через DI запрещён (спека #23, Testing Decisions #5).
+    private static async Task<string> UrlWithRequiredParametersAsync(HttpClient client, string path)
+    {
+        if (path != "/api/slots")
+        {
+            return path;
+        }
+
+        using var content = new StringContent(
+            """{"id":"conformance-slots","title":"Слоты","description":"","durationMinutes":30}""",
+            Encoding.UTF8,
+            "application/json");
+        using var response = await client.PostAsync("/api/meeting-types", content);
+        response.EnsureSuccessStatusCode();
+
+        return $"{path}?meetingTypeId=conformance-slots";
+    }
 
     // Тело POST-запроса берётся из example схемы запроса в контракте.
     private static StringContent ContractRequestContent(string path, string method)

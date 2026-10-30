@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<CalendarStore>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 var app = builder.Build();
 
@@ -20,6 +21,7 @@ app.MapOpenApi();
 app.MapGet("/api/health", () => new HealthResponse("ok"));
 
 app.MapMeetingTypeEndpoints();
+app.MapSlotEndpoints();
 
 // An unknown API route answers 404 with a ProblemDetails body instead of falling
 // through to the SPA fallback below, which would return HTML with 200.
