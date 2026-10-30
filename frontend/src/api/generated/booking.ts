@@ -24,6 +24,62 @@ export interface HealthResponse {
 }
 
 /**
+ * Встреча: занятый интервал с типом на момент брони и именем гостя.
+ */
+export interface Meeting {
+  /** Уникальный идентификатор встречи. */
+  id: string;
+  /**
+     * Идентификатор типа встречи, по которому забронирована встреча.
+     * @minLength 1
+     * @maxLength 64
+     */
+  meetingTypeId: string;
+  /**
+     * Название типа встречи на момент брони.
+     * @minLength 1
+     * @maxLength 120
+     */
+  meetingTypeTitle: string;
+  /**
+     * Длительность встречи на момент брони, в минутах.
+     * @minimum 15
+     * @maximum 480
+     */
+  durationMinutes: number;
+  /** Начало встречи по московскому времени. */
+  start: string;
+  /** Конец встречи по московскому времени: начало плюс длительность. */
+  end: string;
+  /**
+     * Имя гостя, указанное при бронировании.
+     * @minLength 1
+     * @maxLength 100
+     */
+  guestName: string;
+}
+
+/**
+ * Запрос на бронирование встречи; конец сервер вычисляет из длительности типа.
+ */
+export interface MeetingCreateRequest {
+  /**
+     * Идентификатор типа встречи.
+     * @minLength 1
+     * @maxLength 64
+     */
+  meetingTypeId: string;
+  /** Начало встречи в формате ISO 8601 со смещением; сервер приводит время к Москве. */
+  start: string;
+  /**
+     * Имя гостя.
+     * @minLength 1
+     * @maxLength 100
+     */
+  guestName: string;
+}
+
+/**
  * Тип встречи: шаблон с названием, описанием и длительностью.
  */
 export interface MeetingType {
@@ -323,6 +379,123 @@ const res = await fetch(getCreateMeetingTypeUrl(),
 
   const data: createMeetingTypeResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as createMeetingTypeResponse
+}
+
+
+
+export type createMeetingResponse201 = {
+  data: Meeting
+  status: 201
+}
+
+export type createMeetingResponse400 = {
+  data: ProblemDetails
+  status: 400
+}
+
+export type createMeetingResponse404 = {
+  data: ProblemDetails
+  status: 404
+}
+
+export type createMeetingResponse409 = {
+  data: ProblemDetails
+  status: 409
+}
+
+export type createMeetingResponseSuccess = (createMeetingResponse201) & {
+  headers: Headers;
+};
+export type createMeetingResponseError = (createMeetingResponse400 | createMeetingResponse404 | createMeetingResponse409) & {
+  headers: Headers;
+};
+
+export type createMeetingResponse = (createMeetingResponseSuccess | createMeetingResponseError)
+
+export const getCreateMeetingUrl = () => {
+
+
+
+
+  return `/api/meetings`
+}
+
+/**
+ * Создаёт встречу на свободном слоте и возвращает её; конец вычисляется из длительности типа.
+ */
+export const createMeeting = async (meetingCreateRequest: MeetingCreateRequest, options?: RequestInit): Promise<createMeetingResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+const res = await fetch(getCreateMeetingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(meetingCreateRequest)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createMeetingResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as createMeetingResponse
+}
+
+
+
+export type listMeetingsResponse200 = {
+  data: Meeting[]
+  status: 200
+}
+
+export type listMeetingsResponseSuccess = (listMeetingsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type listMeetingsResponse = (listMeetingsResponseSuccess)
+
+export const getListMeetingsUrl = () => {
+
+
+
+
+  return `/api/meetings`
+}
+
+/**
+ * Возвращает предстоящие встречи по возрастанию начала; пусто — пустой список.
+ */
+export const listMeetings = async ( options?: RequestInit): Promise<listMeetingsResponse> => {
+
+  const res = await fetch(getListMeetingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listMeetingsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listMeetingsResponse
 }
 
 

@@ -4,20 +4,22 @@ import {
   Button,
   Card,
   Container,
+  Group,
   Paper,
   SimpleGrid,
   Skeleton,
   Stack,
   Text,
+  TextInput,
   Title,
 } from '@mantine/core'
 import { DatePicker, DatesProvider } from '@mantine/dates'
 import dayjs from 'dayjs'
 import 'dayjs/locale/ru'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { listMeetingTypes, listSlots } from '../api/generated/booking'
-import type { MeetingType, Slot, SlotDay, SlotsResponse } from '../api/generated/booking'
+import { createMeeting, listMeetingTypes, listSlots } from '../api/generated/booking'
+import type { Meeting, MeetingType, Slot, SlotDay, SlotsResponse } from '../api/generated/booking'
 
 type TypesState =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; types: MeetingType[] }
@@ -27,6 +29,9 @@ type SlotsState =
   | { status: 'loading' }
   | { status: 'error' }
   | { status: 'ready'; response: SlotsResponse }
+
+// Ограничение длины имени гостя из контракта (MeetingCreateRequest.guestName).
+const GUEST_NAME_MAX_LENGTH = 100
 
 async function fetchTypes(): Promise<TypesState> {
   try {
@@ -75,6 +80,18 @@ function formatTime(value: string, timeZone: string): string {
   }).format(new Date(value))
 }
 
+// Подтверждение: «Пн, 2 ноября, 10:00–10:30 (МСК)».
+function formatMeetingTime(start: string, end: string, timeZone: string): string {
+  const date = new Intl.DateTimeFormat('ru-RU', {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+  }).format(new Date(start))
+
+  return `${date.charAt(0).toUpperCase()}${date.slice(1)}, ${formatTime(start, timeZone)}–${formatTime(end, timeZone)} (МСК)`
+}
+
 export function BookingPage() {
   const [typesState, setTypesState] = useState<TypesState>({ status: 'loading' })
   const [selectedType, setSelectedType] = useState<MeetingType | null>(null)
@@ -82,6 +99,11 @@ export function BookingPage() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [visibleMonth, setVisibleMonth] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
+  const [guestName, setGuestName] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [bookingFailed, setBookingFailed] = useState(false)
+  const [confirmation, setConfirmation] = useState<Meeting | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   async function loadSlots(type: MeetingType) {
     setSlotsState({ status: 'loading' })
@@ -107,33 +129,103 @@ export function BookingPage() {
     void fetchTypes().then(setTypesState)
   }, [])
 
+  // Выбор слота активирует поле имени и переводит в него фокус.
+  useEffect(() => {
+    if (selectedSlot) {
+      nameInputRef.current?.focus()
+    }
+  }, [selectedSlot])
+
   function refreshTypes() {
     setTypesState({ status: 'loading' })
     void fetchTypes().then(setTypesState)
   }
 
   function selectType(type: MeetingType) {
+    if (submitting) {
+      return
+    }
+
     setSelectedType(type)
     setSelectedDay(null)
     void loadSlots(type)
   }
 
   function changeType() {
+    if (submitting) {
+      return
+    }
+
     setSelectedType(null)
     setSlotsState({ status: 'idle' })
     setSelectedDay(null)
     setVisibleMonth(null)
     setSelectedSlot(null)
+    setGuestName('')
+    setBookingFailed(false)
   }
 
   function selectDay(day: string | null) {
+    if (submitting) {
+      return
+    }
+
     setSelectedDay(day)
     setSelectedSlot(null)
   }
 
   function refreshSlots() {
-    if (selectedType) {
+    if (selectedType && !submitting) {
       void loadSlots(selectedType)
+    }
+  }
+
+  // «Назад» снимает слот и очищает имя, оставляя тип и день.
+  function backToSlots() {
+    setSelectedSlot(null)
+    setGuestName('')
+    setBookingFailed(false)
+  }
+
+  // «Записаться ещё» возвращает экран в исходное состояние и перезапрашивает типы.
+  function bookAgain() {
+    setConfirmation(null)
+    setSelectedType(null)
+    setSlotsState({ status: 'idle' })
+    setSelectedDay(null)
+    setVisibleMonth(null)
+    setSelectedSlot(null)
+    setGuestName('')
+    setBookingFailed(false)
+    refreshTypes()
+  }
+
+  async function submitBooking() {
+    if (!selectedType || !selectedSlot || submitting || guestName.trim() === '') {
+      return
+    }
+
+    setSubmitting(true)
+    setBookingFailed(false)
+
+    try {
+      const response = await createMeeting({
+        meetingTypeId: selectedType.id,
+        start: selectedSlot.start,
+        guestName: guestName.trim(),
+      })
+
+      if (response.status === 201) {
+        setConfirmation(response.data)
+        return
+      }
+
+      // Полноценная обработка отказов брони — тикет #28; здесь только общая плашка.
+      setBookingFailed(true)
+    } catch {
+      setBookingFailed(true)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -145,204 +237,255 @@ export function BookingPage() {
     slotsState.status === 'ready'
       ? (slotsState.response.days.find((day) => day.date === selectedDay)?.slots ?? [])
       : []
+  const nameReady = selectedSlot !== null && guestName.trim() !== ''
 
   return (
     <Container size="lg" py="xl">
       <Stack gap="lg">
         <Title order={1}>Бронирование</Title>
 
-        <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+        {confirmation ? (
           <Paper withBorder p="md">
-            <Stack gap="md">
-              <Title order={2}>Типы встреч</Title>
-
-              {typesState.status === 'loading' && (
-                <Stack gap="xs" role="status" aria-label="Загрузка типов встреч">
-                  <Skeleton height={72} radius="sm" />
-                  <Skeleton height={72} radius="sm" />
-                </Stack>
-              )}
-
-              {typesState.status === 'error' && (
-                <Alert color="red" withCloseButton={false}>
-                  <Stack gap="xs" align="flex-start">
-                    <Text>Не удалось загрузить типы встреч</Text>
-                    <Button variant="outline" size="xs" onClick={refreshTypes}>
-                      Повторить
-                    </Button>
-                  </Stack>
-                </Alert>
-              )}
-
-              {typesState.status === 'ready' && typesState.types.length === 0 && (
-                <Alert color="blue" withCloseButton={false}>
-                  <Stack gap="xs" align="flex-start">
-                    <Text>Типы встреч ещё не созданы</Text>
-                    <Anchor component={Link} to="/owner" size="sm">
-                      Страница владельца
-                    </Anchor>
-                    <Button variant="outline" size="xs" onClick={refreshTypes}>
-                      Обновить
-                    </Button>
-                  </Stack>
-                </Alert>
-              )}
-
-              {typesState.status === 'ready' && typesState.types.length > 0 && !selectedType && (
-                <Stack gap="sm">
-                  {typesState.types.map((type) => (
-                    <Card
-                      key={type.id}
-                      component="button"
-                      type="button"
-                      withBorder
-                      p="md"
-                      onClick={() => selectType(type)}
-                      style={{ textAlign: 'left', cursor: 'pointer' }}
-                    >
-                      <Stack gap={4}>
-                        <Text fw={600}>{type.title}</Text>
-                        {type.description && (
-                          <Text fz="sm" c="dimmed">
-                            {type.description}
-                          </Text>
-                        )}
-                        <Text fz="sm">{type.durationMinutes} мин</Text>
-                      </Stack>
-                    </Card>
-                  ))}
-                </Stack>
-              )}
-
-              {selectedType && (
-                <Paper withBorder p="md">
-                  <Stack gap="xs">
-                    <Title order={3}>{selectedType.title}</Title>
-                    {selectedType.description && (
-                      <Text fz="sm" c="dimmed">
-                        {selectedType.description}
-                      </Text>
-                    )}
-                    <Text fz="sm">{selectedType.durationMinutes} мин</Text>
-                    <Text fz="sm" c="dimmed">
-                      Время указано по Москве (UTC+3)
-                    </Text>
-                    <Button variant="light" onClick={changeType}>
-                      Изменить
-                    </Button>
-                  </Stack>
-                </Paper>
-              )}
+            <Stack gap="sm" align="flex-start">
+              <Title order={2}>Встреча забронирована</Title>
+              <Text fw={600}>{confirmation.meetingTypeTitle}</Text>
+              <Text>
+                {formatMeetingTime(
+                  confirmation.start,
+                  confirmation.end,
+                  timeZone ?? 'Europe/Moscow',
+                )}
+              </Text>
+              <Text>{confirmation.guestName}</Text>
+              <Button onClick={bookAgain}>Записаться ещё</Button>
             </Stack>
           </Paper>
+        ) : (
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+            <Paper withBorder p="md">
+              <Stack gap="md">
+                <Title order={2}>Типы встреч</Title>
 
-          <Paper withBorder p="md">
-            <Stack gap="md">
-              {slotsState.status === 'ready' && !hasFreeSlot(slotsState.response) && (
-                <Alert color="blue" withCloseButton={false}>
-                  <Stack gap="xs" align="flex-start">
-                    <Text>В ближайшие 14 дней свободных слотов нет</Text>
-                    <Button variant="outline" size="xs" onClick={refreshSlots}>
-                      Обновить
-                    </Button>
+                {typesState.status === 'loading' && (
+                  <Stack gap="xs" role="status" aria-label="Загрузка типов встреч">
+                    <Skeleton height={72} radius="sm" />
+                    <Skeleton height={72} radius="sm" />
                   </Stack>
-                </Alert>
-              )}
+                )}
 
-              <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
-                <DatePicker
-                  value={selectedDay}
-                  onChange={selectDay}
-                  date={visibleMonth ?? undefined}
-                  onDateChange={setVisibleMonth}
-                  minDate={bookingWindow?.from}
-                  maxDate={bookingWindow?.to}
-                  excludeDate={(date) => !calendarActive || !isWorkingDay(date)}
-                  firstDayOfWeek={1}
-                  highlightToday={false}
-                  renderDay={(date) => (
-                    <span
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: 2,
-                      }}
-                    >
-                      <span>{dayjs(date).date()}</span>
-                      {date === today && (
-                        <span style={{ fontSize: 9, lineHeight: 1 }}>сегодня</span>
-                      )}
-                    </span>
-                  )}
-                />
-              </DatesProvider>
-            </Stack>
-          </Paper>
-
-          <Paper withBorder p="md">
-            <Stack gap="md">
-              <Title order={2}>Слоты</Title>
-
-              {!selectedType && typesState.status === 'ready' && (
-                <Text c="dimmed">Выберите тип встречи</Text>
-              )}
-
-              {selectedType && slotsState.status === 'loading' && (
-                <Stack gap="xs" role="status" aria-label="Загрузка слотов">
-                  <Skeleton height={36} radius="sm" />
-                  <Skeleton height={36} radius="sm" />
-                  <Skeleton height={36} radius="sm" />
-                </Stack>
-              )}
-
-              {selectedType && slotsState.status === 'error' && (
-                <Alert color="red" withCloseButton={false}>
-                  <Stack gap="xs" align="flex-start">
-                    <Text>Не удалось загрузить слоты</Text>
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      onClick={() => void loadSlots(selectedType)}
-                    >
-                      Повторить
-                    </Button>
-                  </Stack>
-                </Alert>
-              )}
-
-              {slotsState.status === 'ready' && (
-                <Stack gap="sm">
-                  {!daySlots.some((slot) => slot.available) && (
-                    <Text c="dimmed">На этот день свободных слотов нет</Text>
-                  )}
-
-                  {daySlots.map((slot) => {
-                    const label = timeZone
-                      ? `${formatTime(slot.start, timeZone)}–${formatTime(slot.end, timeZone)}`
-                      : slot.start
-
-                    return (
-                      <Button
-                        key={slot.start}
-                        variant={selectedSlot?.start === slot.start ? 'filled' : 'default'}
-                        disabled={!slot.available}
-                        aria-pressed={selectedSlot?.start === slot.start}
-                        aria-label={slot.available ? label : `${label} занято`}
-                        onClick={() => setSelectedSlot(slot)}
-                        justify="space-between"
-                        fullWidth
-                      >
-                        <span>{label}</span>
-                        {!slot.available && <span>занято</span>}
+                {typesState.status === 'error' && (
+                  <Alert color="red" withCloseButton={false}>
+                    <Stack gap="xs" align="flex-start">
+                      <Text>Не удалось загрузить типы встреч</Text>
+                      <Button variant="outline" size="xs" onClick={refreshTypes}>
+                        Повторить
                       </Button>
-                    )
-                  })}
-                </Stack>
-              )}
-            </Stack>
-          </Paper>
-        </SimpleGrid>
+                    </Stack>
+                  </Alert>
+                )}
+
+                {typesState.status === 'ready' && typesState.types.length === 0 && (
+                  <Alert color="blue" withCloseButton={false}>
+                    <Stack gap="xs" align="flex-start">
+                      <Text>Типы встреч ещё не созданы</Text>
+                      <Anchor component={Link} to="/owner" size="sm">
+                        Страница владельца
+                      </Anchor>
+                      <Button variant="outline" size="xs" onClick={refreshTypes}>
+                        Обновить
+                      </Button>
+                    </Stack>
+                  </Alert>
+                )}
+
+                {typesState.status === 'ready' && typesState.types.length > 0 && !selectedType && (
+                  <Stack gap="sm">
+                    {typesState.types.map((type) => (
+                      <Card
+                        key={type.id}
+                        component="button"
+                        type="button"
+                        withBorder
+                        p="md"
+                        onClick={() => selectType(type)}
+                        style={{ textAlign: 'left', cursor: submitting ? 'default' : 'pointer' }}
+                      >
+                        <Stack gap={4}>
+                          <Text fw={600}>{type.title}</Text>
+                          {type.description && (
+                            <Text fz="sm" c="dimmed">
+                              {type.description}
+                            </Text>
+                          )}
+                          <Text fz="sm">{type.durationMinutes} мин</Text>
+                        </Stack>
+                      </Card>
+                    ))}
+                  </Stack>
+                )}
+
+                {selectedType && (
+                  <Paper withBorder p="md">
+                    <Stack gap="xs">
+                      <Title order={3}>{selectedType.title}</Title>
+                      {selectedType.description && (
+                        <Text fz="sm" c="dimmed">
+                          {selectedType.description}
+                        </Text>
+                      )}
+                      <Text fz="sm">{selectedType.durationMinutes} мин</Text>
+                      <Text fz="sm" c="dimmed">
+                        Время указано по Москве (UTC+3)
+                      </Text>
+                      <Button variant="light" onClick={changeType} disabled={submitting}>
+                        Изменить
+                      </Button>
+                    </Stack>
+                  </Paper>
+                )}
+              </Stack>
+            </Paper>
+
+            <Paper withBorder p="md">
+              <Stack gap="md">
+                {slotsState.status === 'ready' && !hasFreeSlot(slotsState.response) && (
+                  <Alert color="blue" withCloseButton={false}>
+                    <Stack gap="xs" align="flex-start">
+                      <Text>В ближайшие 14 дней свободных слотов нет</Text>
+                      <Button variant="outline" size="xs" onClick={refreshSlots}>
+                        Обновить
+                      </Button>
+                    </Stack>
+                  </Alert>
+                )}
+
+                <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
+                  <DatePicker
+                    value={selectedDay}
+                    onChange={selectDay}
+                    date={visibleMonth ?? undefined}
+                    onDateChange={setVisibleMonth}
+                    minDate={bookingWindow?.from}
+                    maxDate={bookingWindow?.to}
+                    excludeDate={(date) => submitting || !calendarActive || !isWorkingDay(date)}
+                    firstDayOfWeek={1}
+                    highlightToday={false}
+                    renderDay={(date) => (
+                      <span
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 2,
+                        }}
+                      >
+                        <span>{dayjs(date).date()}</span>
+                        {date === today && (
+                          <span style={{ fontSize: 9, lineHeight: 1 }}>сегодня</span>
+                        )}
+                      </span>
+                    )}
+                  />
+                </DatesProvider>
+              </Stack>
+            </Paper>
+
+            <Paper withBorder p="md">
+              <Stack gap="md">
+                <Title order={2}>Слоты</Title>
+
+                {!selectedType && typesState.status === 'ready' && (
+                  <Text c="dimmed">Выберите тип встречи</Text>
+                )}
+
+                {selectedType && slotsState.status === 'loading' && (
+                  <Stack gap="xs" role="status" aria-label="Загрузка слотов">
+                    <Skeleton height={36} radius="sm" />
+                    <Skeleton height={36} radius="sm" />
+                    <Skeleton height={36} radius="sm" />
+                  </Stack>
+                )}
+
+                {selectedType && slotsState.status === 'error' && (
+                  <Alert color="red" withCloseButton={false}>
+                    <Stack gap="xs" align="flex-start">
+                      <Text>Не удалось загрузить слоты</Text>
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => void loadSlots(selectedType)}
+                      >
+                        Повторить
+                      </Button>
+                    </Stack>
+                  </Alert>
+                )}
+
+                {slotsState.status === 'ready' && (
+                  <Stack gap="sm">
+                    {!daySlots.some((slot) => slot.available) && (
+                      <Text c="dimmed">На этот день свободных слотов нет</Text>
+                    )}
+
+                    {daySlots.map((slot) => {
+                      const label = timeZone
+                        ? `${formatTime(slot.start, timeZone)}–${formatTime(slot.end, timeZone)}`
+                        : slot.start
+
+                      return (
+                        <Button
+                          key={slot.start}
+                          variant={selectedSlot?.start === slot.start ? 'filled' : 'default'}
+                          disabled={!slot.available || submitting}
+                          aria-pressed={selectedSlot?.start === slot.start}
+                          aria-label={slot.available ? label : `${label} занято`}
+                          onClick={() => setSelectedSlot(slot)}
+                          justify="space-between"
+                          fullWidth
+                        >
+                          <span>{label}</span>
+                          {!slot.available && <span>занято</span>}
+                        </Button>
+                      )
+                    })}
+
+                    <TextInput
+                      ref={nameInputRef}
+                      label="Ваше имя"
+                      value={guestName}
+                      maxLength={GUEST_NAME_MAX_LENGTH}
+                      disabled={!selectedSlot || submitting}
+                      onChange={(event) => setGuestName(event.currentTarget.value)}
+                    />
+
+                    {bookingFailed && (
+                      <Alert color="red" withCloseButton={false}>
+                        Не удалось забронировать встречу
+                      </Alert>
+                    )}
+
+                    <Group justify="space-between">
+                      <Button
+                        variant="default"
+                        onClick={backToSlots}
+                        disabled={!selectedSlot || submitting}
+                      >
+                        Назад
+                      </Button>
+                      <Button
+                        onClick={() => void submitBooking()}
+                        loading={submitting}
+                        disabled={!nameReady || submitting}
+                      >
+                        Продолжить
+                      </Button>
+                    </Group>
+                  </Stack>
+                )}
+              </Stack>
+            </Paper>
+          </SimpleGrid>
+        )}
       </Stack>
     </Container>
   )
