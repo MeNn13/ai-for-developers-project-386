@@ -10,7 +10,7 @@ vi.mock('../api/generated/booking', () => ({
 }))
 
 import { createMeetingType, listMeetingTypes } from '../api/generated/booking'
-import type { MeetingType } from '../api/generated/booking'
+import type { MeetingType, createMeetingTypeResponse } from '../api/generated/booking'
 
 function renderOwnerPage() {
   return render(
@@ -19,6 +19,17 @@ function renderOwnerPage() {
     </MantineProvider>,
   )
 }
+
+function mockEmptyTypes() {
+  vi.mocked(listMeetingTypes).mockResolvedValue({
+    data: [],
+    status: 200,
+    headers: new Headers(),
+  })
+}
+
+const ID_HINT = 'подставлено из названия — можно изменить'
+const ID_TAKEN = 'Такой id уже занят — измените его'
 
 const firstType: MeetingType = {
   id: 'znakomstvo',
@@ -76,7 +87,10 @@ describe('owner page', () => {
     expect(await screen.findByText('Типы встреч ещё не созданы')).toBeVisible()
 
     await user.type(screen.getByLabelText('Название'), 'Знакомство')
-    await user.type(screen.getByLabelText('Идентификатор'), 'znakomstvo')
+    // Ручная правка id: сначала отцепить значение от подсказки, затем ввести своё.
+    const idInput = screen.getByLabelText('Идентификатор')
+    await user.clear(idInput)
+    await user.type(idInput, 'znakomstvo')
     await user.click(screen.getByRole('button', { name: 'Создать' }))
 
     await waitFor(() =>
@@ -96,5 +110,278 @@ describe('owner page', () => {
     expect(screen.getByLabelText('Название')).toHaveValue('')
     expect(screen.getByLabelText('Идентификатор')).toHaveValue('')
     expect(screen.getByLabelText('Длительность, мин')).toHaveValue('30')
+  })
+
+  it('suggests id from the title and shows the hint while id is untouched', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+    expect(screen.getByText(ID_HINT)).toBeVisible()
+  })
+
+  it('detaches id from the title after the first manual edit', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    const id = screen.getByLabelText('Идентификатор')
+
+    await user.type(title, 'Знакомство')
+    await user.type(id, '2026')
+
+    expect(id).toHaveValue('znakomstvo2026')
+    expect(screen.queryByText(ID_HINT)).not.toBeInTheDocument()
+
+    // Последующие изменения названия больше не трогают id.
+    await user.type(title, '!')
+
+    expect(id).toHaveValue('znakomstvo2026')
+  })
+
+  it('re-couples id to the title when id is cleared to empty', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    const id = screen.getByLabelText('Идентификатор')
+
+    await user.type(title, 'Знакомство')
+    await user.type(id, '2026')
+    await user.clear(id)
+
+    expect(screen.getByText(ID_HINT)).toBeVisible()
+
+    await user.clear(title)
+    await user.type(title, 'Воркшоп')
+
+    expect(id).toHaveValue('vorkshop')
+  })
+
+  it('clears the suggested id when the title is cleared', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+
+    await user.type(title, 'Знакомство')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+
+    await user.clear(title)
+
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('')
+  })
+
+  it('shows the collision warning for an existing id without adding a suffix and blocks submit', async () => {
+    vi.mocked(listMeetingTypes).mockResolvedValue({
+      data: [firstType],
+      status: 200,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await screen.findByRole('listitem')
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+
+    // Подсказка не додумывает суффиксы вида «-2»: id остаётся как есть.
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+    expect(screen.getByText(ID_TAKEN)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled()
+  })
+
+  it('shows the same collision text when the server answers 409 meeting-type-exists', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: {
+        type: 'meeting-type-exists',
+        title: 'Конфликт',
+        status: 409,
+        detail: 'Тип встречи с таким id уже существует.',
+        instance: '/api/meeting-types',
+      },
+      status: 409,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    await user.type(title, 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText(ID_TAKEN)).toBeVisible()
+
+    // Остальные значения сохраняются.
+    expect(title).toHaveValue('Знакомство')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+  })
+
+  it('disables the create button while the form is invalid', async () => {
+    mockEmptyTypes()
+    renderOwnerPage()
+
+    // Пустые обязательные название и id делают форму невалидной сразу.
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled()
+  })
+
+  it('validates fields on blur and keeps the errors under them', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    const id = screen.getByLabelText('Идентификатор')
+    const duration = screen.getByLabelText('Длительность, мин')
+
+    await user.click(title)
+    await user.tab()
+    expect(await screen.findByText('Укажите название')).toBeVisible()
+
+    await user.type(id, 'ABC')
+    await user.tab()
+    expect(await screen.findByText('Только строчные латинские буквы, цифры и дефис')).toBeVisible()
+
+    await user.click(duration)
+    await user.clear(duration)
+    await user.type(duration, '17')
+    await user.tab()
+    expect(await screen.findByText('Длительность кратна 5 минутам')).toBeVisible()
+
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled()
+  })
+
+  it('locks the fields and blocks double submit while the request is in flight', async () => {
+    mockEmptyTypes()
+    let resolveCreate: ((value: createMeetingTypeResponse) => void) | undefined
+    vi.mocked(createMeetingType).mockImplementation(
+      () =>
+        new Promise<createMeetingTypeResponse>((resolve) => {
+          resolveCreate = resolve
+        }),
+    )
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+
+    const create = screen.getByRole('button', { name: 'Создать' })
+    await user.click(create)
+    await user.click(create)
+
+    expect(createMeetingType).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('Название')).toBeDisabled()
+    expect(screen.getByLabelText('Идентификатор')).toBeDisabled()
+
+    resolveCreate?.({ data: firstType, status: 201, headers: new Headers() })
+
+    expect(await screen.findByText('Тип встречи создан')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toBeEnabled()
+  })
+
+  it('keeps the values and offers a retry when the network fails', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ data: firstType, status: 201, headers: new Headers() })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Не удалось создать тип встречи')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toHaveValue('Знакомство')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+
+    expect(await screen.findByText('Тип встречи создан')).toBeVisible()
+    expect(createMeetingType).toHaveBeenCalledTimes(2)
+    expect(createMeetingType).toHaveBeenLastCalledWith({
+      id: 'znakomstvo',
+      title: 'Знакомство',
+      description: '',
+      durationMinutes: 30,
+    })
+  })
+
+  it('distributes server validation-failed errors under the fields and keeps the values', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: {
+        type: 'validation-failed',
+        title: 'Запрос некорректен',
+        status: 400,
+        detail: 'Проверьте введённые значения.',
+        instance: '/api/meeting-types',
+        errors: { durationMinutes: ['Длительность должна быть кратна 5 минутам.'] },
+      },
+      status: 400,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Длительность должна быть кратна 5 минутам.')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toHaveValue('Знакомство')
+    expect(screen.queryByText('Не удалось создать тип встречи')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the failure plaque when the error body is not ProblemDetails', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: { message: 'Internal error' },
+      status: 500,
+      headers: new Headers(),
+    } as never)
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Не удалось создать тип встречи')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toHaveValue('Знакомство')
+  })
+
+  it('resets the form to defaults and returns focus to the title on success', async () => {
+    vi.mocked(listMeetingTypes)
+      .mockResolvedValueOnce({ data: [], status: 200, headers: new Headers() })
+      .mockResolvedValueOnce({ data: [firstType], status: 200, headers: new Headers() })
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: firstType,
+      status: 201,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.type(screen.getByLabelText('Описание'), 'Короткий созвон')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Тип встречи создан')).toBeVisible()
+
+    // Умолчания: длительность снова 30, текст очищен, id снова свободен от подсказки.
+    const title = screen.getByLabelText('Название')
+    expect(title).toHaveValue('')
+    expect(title).toHaveFocus()
+    expect(screen.getByLabelText('Описание')).toHaveValue('')
+    expect(screen.getByLabelText('Длительность, мин')).toHaveValue('30')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('')
+    expect(screen.getByText(ID_HINT)).toBeVisible()
+
+    // Список типов перезапрошен ровно один раз сверх стартового.
+    expect(listMeetingTypes).toHaveBeenCalledTimes(2)
   })
 })
