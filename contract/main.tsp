@@ -118,6 +118,89 @@ op createMeetingType(@body body: MeetingTypeCreateRequest):
 op listSlots(@query @doc("Идентификатор типа встречи, для которого считаются слоты.")
   meetingTypeId: string): SlotsResponse | ValidationError | MeetingTypeNotFoundError;
 
+@route("/meetings")
+@post
+@tag("meetings")
+@doc("Создаёт встречу на свободном слоте и возвращает её; конец вычисляется из длительности типа.")
+@operationId("createMeeting")
+@opExample(
+  #{
+    returnType: #{
+      statusCode: 400,
+      body: #{
+        type: "validation-failed",
+        title: "Запрос некорректен",
+        status: 400,
+        detail: "Поля запроса не прошли проверку.",
+        instance: "/api/meetings",
+        errors: #{
+          guestName: #["Поле «Ваше имя» обязательно"],
+          start: #["Время начала должно быть в формате ISO 8601 со смещением"],
+        },
+      },
+    },
+  },
+  #{ description: "Пустое имя гостя и время без смещения." }
+)
+@opExample(
+  #{
+    returnType: #{
+      statusCode: 400,
+      body: #{
+        type: "slot-not-bookable",
+        title: "Слот недоступен",
+        status: 400,
+        detail: "Это время не является слотом записи.",
+        instance: "/api/meetings",
+      },
+    },
+  },
+  #{ description: "Старт в прошлом, вне сетки, окна или рабочих часов." }
+)
+@opExample(
+  #{
+    returnType: #{
+      statusCode: 404,
+      body: #{
+        type: "meeting-type-not-found",
+        title: "Не найдено",
+        status: 404,
+        detail: "Тип встречи с таким id не найден.",
+        instance: "/api/meetings",
+      },
+    },
+  },
+  #{ description: "Неизвестный meetingTypeId." }
+)
+@opExample(
+  #{
+    returnType: #{
+      statusCode: 409,
+      body: #{
+        type: "slot-taken",
+        title: "Слот занят",
+        status: 409,
+        detail: "Это время уже занято другой встречей.",
+        instance: "/api/meetings",
+      },
+    },
+  },
+  #{ description: "Интервал пересекается с существующей встречей." }
+)
+op createMeeting(@body body: MeetingCreateRequest):
+  | MeetingCreatedResponse
+  | ValidationError
+  | SlotNotBookableError
+  | MeetingTypeNotFoundError
+  | SlotTakenError;
+
+@route("/meetings")
+@get
+@tag("meetings")
+@doc("Возвращает предстоящие встречи по возрастанию начала; пусто — пустой список.")
+@operationId("listMeetings")
+op listMeetings(): Meeting[];
+
 @doc("Тип встречи: шаблон с названием, описанием и длительностью.")
 @example(#{
   id: "znakomstvo",
@@ -247,6 +330,97 @@ model SlotsResponse {
 
   @doc("Ровно 14 дней по возрастанию даты, включая выходные и дни без кандидатов.")
   days: SlotDay[];
+}
+
+@doc("Встреча: занятый интервал с типом на момент брони и именем гостя.")
+@example(#{
+  id: "6f9619ff-8b86-d011-b42d-00cf4fc964ff",
+  meetingTypeId: "znakomstvo",
+  meetingTypeTitle: "Знакомство",
+  durationMinutes: 30,
+  start: offsetDateTime.fromISO("2026-11-02T10:00:00+03:00"),
+  end: offsetDateTime.fromISO("2026-11-02T10:30:00+03:00"),
+  guestName: "Анна",
+})
+model Meeting {
+  @doc("Уникальный идентификатор встречи.")
+  @format("uuid")
+  id: string;
+
+  @doc("Идентификатор типа встречи, по которому забронирована встреча.")
+  @minLength(1)
+  @maxLength(64)
+  meetingTypeId: string;
+
+  @doc("Название типа встречи на момент брони.")
+  @minLength(1)
+  @maxLength(120)
+  meetingTypeTitle: string;
+
+  @doc("Длительность встречи на момент брони, в минутах.")
+  @minValue(15)
+  @maxValue(480)
+  @multipleOf(5)
+  durationMinutes: int32;
+
+  @doc("Начало встречи по московскому времени.")
+  start: offsetDateTime;
+
+  @doc("Конец встречи по московскому времени: начало плюс длительность.")
+  end: offsetDateTime;
+
+  @doc("Имя гостя, указанное при бронировании.")
+  @minLength(1)
+  @maxLength(100)
+  guestName: string;
+}
+
+@doc("Запрос на бронирование встречи; конец сервер вычисляет из длительности типа.")
+@example(#{
+  meetingTypeId: "znakomstvo",
+  start: offsetDateTime.fromISO("2026-11-02T10:00:00+03:00"),
+  guestName: "Анна",
+})
+model MeetingCreateRequest {
+  @doc("Идентификатор типа встречи.")
+  @minLength(1)
+  @maxLength(64)
+  meetingTypeId: string;
+
+  @doc("Начало встречи в формате ISO 8601 со смещением; сервер приводит время к Москве.")
+  start: offsetDateTime;
+
+  @doc("Имя гостя.")
+  @minLength(1)
+  @maxLength(100)
+  guestName: string;
+}
+
+@doc("Встреча создана.")
+model MeetingCreatedResponse {
+  @statusCode
+  statusCode: 201;
+
+  @body
+  body: Meeting;
+}
+
+@doc("Старт не является слотом по правилам записи.")
+model SlotNotBookableError {
+  @statusCode
+  statusCode: 400;
+
+  @body
+  body: ProblemDetails;
+}
+
+@doc("Слот уже занят другой встречей.")
+model SlotTakenError {
+  @statusCode
+  statusCode: 409;
+
+  @body
+  body: ProblemDetails;
 }
 
 alias ErrorSlug =

@@ -7,6 +7,7 @@ tags:
   - name: health
   - name: meeting-types
   - name: slots
+  - name: meetings
 paths:
   /api/health:
     get:
@@ -92,6 +93,101 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MeetingTypeCreateRequest'
+  /api/meetings:
+    post:
+      operationId: createMeeting
+      description: Создаёт встречу на свободном слоте и возвращает её; конец вычисляется из длительности типа.
+      parameters: []
+      responses:
+        '201':
+          description: Встреча создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+        '400':
+          description: Поля запроса не прошли проверку.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ProblemDetails'
+                  - $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                example0:
+                  description: Старт в прошлом, вне сетки, окна или рабочих часов.
+                  value:
+                    type: slot-not-bookable
+                    title: Слот недоступен
+                    status: 400
+                    detail: Это время не является слотом записи.
+                    instance: /api/meetings
+                example1:
+                  description: Пустое имя гостя и время без смещения.
+                  value:
+                    type: validation-failed
+                    title: Запрос некорректен
+                    status: 400
+                    detail: Поля запроса не прошли проверку.
+                    instance: /api/meetings
+                    errors:
+                      guestName:
+                        - Поле «Ваше имя» обязательно
+                      start:
+                        - Время начала должно быть в формате ISO 8601 со смещением
+        '404':
+          description: Тип встречи с таким id не найден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                example0:
+                  description: Неизвестный meetingTypeId.
+                  value:
+                    type: meeting-type-not-found
+                    title: Не найдено
+                    status: 404
+                    detail: Тип встречи с таким id не найден.
+                    instance: /api/meetings
+        '409':
+          description: Слот уже занят другой встречей.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                example0:
+                  description: Интервал пересекается с существующей встречей.
+                  value:
+                    type: slot-taken
+                    title: Слот занят
+                    status: 409
+                    detail: Это время уже занято другой встречей.
+                    instance: /api/meetings
+      tags:
+        - meetings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingCreateRequest'
+    get:
+      operationId: listMeetings
+      description: Возвращает предстоящие встречи по возрастанию начала; пусто — пустой список.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meeting'
+      tags:
+        - meetings
   /api/slots:
     get:
       operationId: listSlots
@@ -161,6 +257,86 @@ components:
       description: Состояние API.
       example:
         status: ok
+    Meeting:
+      type: object
+      required:
+        - id
+        - meetingTypeId
+        - meetingTypeTitle
+        - durationMinutes
+        - start
+        - end
+        - guestName
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Уникальный идентификатор встречи.
+        meetingTypeId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Идентификатор типа встречи, по которому забронирована встреча.
+        meetingTypeTitle:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Название типа встречи на момент брони.
+        durationMinutes:
+          type: integer
+          format: int32
+          minimum: 15
+          maximum: 480
+          multipleOf: 5
+          description: Длительность встречи на момент брони, в минутах.
+        start:
+          type: string
+          format: date-time
+          description: Начало встречи по московскому времени.
+        end:
+          type: string
+          format: date-time
+          description: 'Конец встречи по московскому времени: начало плюс длительность.'
+        guestName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Имя гостя, указанное при бронировании.
+      description: 'Встреча: занятый интервал с типом на момент брони и именем гостя.'
+      example:
+        id: 6f9619ff-8b86-d011-b42d-00cf4fc964ff
+        meetingTypeId: znakomstvo
+        meetingTypeTitle: Знакомство
+        durationMinutes: 30
+        start: '2026-11-02T10:00:00+03:00'
+        end: '2026-11-02T10:30:00+03:00'
+        guestName: Анна
+    MeetingCreateRequest:
+      type: object
+      required:
+        - meetingTypeId
+        - start
+        - guestName
+      properties:
+        meetingTypeId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Идентификатор типа встречи.
+        start:
+          type: string
+          format: date-time
+          description: Начало встречи в формате ISO 8601 со смещением; сервер приводит время к Москве.
+        guestName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Имя гостя.
+      description: Запрос на бронирование встречи; конец сервер вычисляет из длительности типа.
+      example:
+        meetingTypeId: znakomstvo
+        start: '2026-11-02T10:00:00+03:00'
+        guestName: Анна
     MeetingType:
       type: object
       required:
