@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OwnerPage } from './OwnerPage'
@@ -7,10 +7,16 @@ import { OwnerPage } from './OwnerPage'
 vi.mock('../api/generated/booking', () => ({
   listMeetingTypes: vi.fn(),
   createMeetingType: vi.fn(),
+  listMeetings: vi.fn(),
 }))
 
-import { createMeetingType, listMeetingTypes } from '../api/generated/booking'
-import type { MeetingType, createMeetingTypeResponse } from '../api/generated/booking'
+import { createMeetingType, listMeetingTypes, listMeetings } from '../api/generated/booking'
+import type {
+  Meeting,
+  MeetingType,
+  createMeetingTypeResponse,
+  listMeetingsResponse,
+} from '../api/generated/booking'
 
 function renderOwnerPage() {
   return render(
@@ -23,6 +29,14 @@ function renderOwnerPage() {
 function mockEmptyTypes() {
   vi.mocked(listMeetingTypes).mockResolvedValue({
     data: [],
+    status: 200,
+    headers: new Headers(),
+  })
+}
+
+function mockMeetings(meetings: Meeting[]) {
+  vi.mocked(listMeetings).mockResolvedValue({
+    data: meetings,
     status: 200,
     headers: new Headers(),
   })
@@ -45,8 +59,29 @@ const secondType: MeetingType = {
   durationMinutes: 45,
 }
 
+const firstMeeting: Meeting = {
+  id: '11111111-1111-4111-8111-111111111111',
+  meetingTypeId: 'znakomstvo',
+  meetingTypeTitle: 'Знакомство',
+  durationMinutes: 30,
+  start: '2026-11-02T10:00:00+03:00',
+  end: '2026-11-02T10:30:00+03:00',
+  guestName: 'Анна',
+}
+
+const secondMeeting: Meeting = {
+  id: '22222222-2222-4222-8222-222222222222',
+  meetingTypeId: '-razbor-1-1',
+  meetingTypeTitle: 'Разбор 1:1',
+  durationMinutes: 45,
+  start: '2026-11-02T12:00:00+03:00',
+  end: '2026-11-02T12:45:00+03:00',
+  guestName: 'Борис',
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
+  mockMeetings([])
 })
 
 describe('owner page', () => {
@@ -383,5 +418,147 @@ describe('owner page', () => {
 
     // Список типов перезапрошен ровно один раз сверх стартового.
     expect(listMeetingTypes).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('upcoming meetings', () => {
+  it('renders meetings in ascending start order with the Moscow caption', async () => {
+    mockEmptyTypes()
+    mockMeetings([firstMeeting, secondMeeting])
+
+    renderOwnerPage()
+
+    expect(await screen.findByRole('table')).toBeVisible()
+    expect(screen.getByText('Время указано по Москве (UTC+3)')).toBeVisible()
+
+    expect(screen.getByRole('columnheader', { name: 'Когда' })).toBeVisible()
+    expect(screen.getByRole('columnheader', { name: 'Тип встречи' })).toBeVisible()
+    expect(screen.getByRole('columnheader', { name: 'Длительность' })).toBeVisible()
+    expect(screen.getByRole('columnheader', { name: 'Гость' })).toBeVisible()
+
+    const rows = screen.getAllByRole('row')
+    expect(rows).toHaveLength(3)
+
+    expect(rows[1]).toHaveTextContent('Пн, 2 ноября, 10:00–10:30')
+    expect(rows[1]).toHaveTextContent('Знакомство')
+    expect(rows[1]).toHaveTextContent('30 мин')
+    expect(rows[1]).toHaveTextContent('Анна')
+
+    expect(rows[2]).toHaveTextContent('Пн, 2 ноября, 12:00–12:45')
+    expect(rows[2]).toHaveTextContent('Разбор 1:1')
+    expect(rows[2]).toHaveTextContent('45 мин')
+    expect(rows[2]).toHaveTextContent('Борис')
+  })
+
+  it('refreshes meetings when the tab becomes visible again', async () => {
+    mockEmptyTypes()
+    mockMeetings([firstMeeting])
+
+    renderOwnerPage()
+    await screen.findByRole('table')
+    expect(listMeetings).toHaveBeenCalledTimes(1)
+
+    fireEvent(document, new Event('visibilitychange'))
+
+    await waitFor(() => expect(listMeetings).toHaveBeenCalledTimes(2))
+  })
+
+  it('refreshes meetings with the button and shows the Moscow update time', async () => {
+    mockEmptyTypes()
+    mockMeetings([firstMeeting])
+    const user = userEvent.setup()
+
+    renderOwnerPage()
+
+    expect(await screen.findByText(/^Обновлено в \d{2}:\d{2}$/)).toBeVisible()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Обновить' }))
+
+    await waitFor(() => expect(listMeetings).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows a skeleton while meetings are loading', async () => {
+    mockEmptyTypes()
+    let resolveMeetings: ((value: listMeetingsResponse) => void) | undefined
+    vi.mocked(listMeetings).mockImplementation(
+      () =>
+        new Promise<listMeetingsResponse>((resolve) => {
+          resolveMeetings = resolve
+        }),
+    )
+
+    renderOwnerPage()
+
+    expect(screen.getByRole('status', { name: 'Загрузка предстоящих встреч' })).toBeVisible()
+
+    resolveMeetings?.({ data: [firstMeeting], status: 200, headers: new Headers() })
+
+    expect(await screen.findByRole('table')).toBeVisible()
+    expect(screen.queryByRole('status', { name: 'Загрузка предстоящих встреч' })).toBeNull()
+  })
+
+  it('keeps shown meetings and offers a retry when a refresh fails', async () => {
+    mockEmptyTypes()
+    vi.mocked(listMeetings)
+      .mockResolvedValueOnce({ data: [firstMeeting], status: 200, headers: new Headers() })
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({
+        data: [firstMeeting, secondMeeting],
+        status: 200,
+        headers: new Headers(),
+      })
+    const user = userEvent.setup()
+
+    renderOwnerPage()
+    await screen.findByRole('table')
+
+    await user.click(screen.getByRole('button', { name: 'Обновить' }))
+
+    expect(await screen.findByText('Не удалось загрузить предстоящие встречи')).toBeVisible()
+    // Уже показанные встречи не стираются при ошибке обновления.
+    expect(screen.getByRole('table')).toBeVisible()
+    expect(screen.getByText('Анна')).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+
+    expect(await screen.findByText('Борис')).toBeVisible()
+    expect(listMeetings).toHaveBeenCalledTimes(3)
+  })
+
+  it('shows the empty state while keeping the creation form usable', async () => {
+    mockEmptyTypes()
+    mockMeetings([])
+
+    renderOwnerPage()
+
+    expect(await screen.findByText('Предстоящих встреч нет')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toBeEnabled()
+  })
+
+  it('keeps the form and types list usable when meetings fail to load', async () => {
+    vi.mocked(listMeetingTypes).mockResolvedValue({
+      data: [firstType],
+      status: 200,
+      headers: new Headers(),
+    })
+    vi.mocked(listMeetings).mockRejectedValue(new TypeError('Failed to fetch'))
+
+    renderOwnerPage()
+
+    expect(await screen.findByText('Не удалось загрузить предстоящие встречи')).toBeVisible()
+    expect(screen.getByLabelText('Название')).toBeEnabled()
+    expect(await screen.findByRole('listitem')).toHaveTextContent('Знакомство')
+  })
+
+  it('keeps meetings visible when the types list fails to load', async () => {
+    vi.mocked(listMeetingTypes).mockRejectedValue(new TypeError('Failed to fetch'))
+    mockMeetings([firstMeeting])
+
+    renderOwnerPage()
+
+    expect(await screen.findByRole('table')).toBeVisible()
+    expect(screen.getByText('Анна')).toBeVisible()
+    expect(await screen.findByText('Не удалось загрузить типы встреч')).toBeVisible()
   })
 })
