@@ -29,6 +29,7 @@ function mockEmptyTypes() {
 }
 
 const ID_HINT = 'подставлено из названия — можно изменить'
+const ID_TAKEN = 'Такой id уже занят — измените его'
 
 const firstType: MeetingType = {
   id: 'znakomstvo',
@@ -175,5 +176,50 @@ describe('owner page', () => {
     await user.clear(title)
 
     expect(screen.getByLabelText('Идентификатор')).toHaveValue('')
+  })
+
+  it('shows the collision warning for an existing id without adding a suffix and blocks submit', async () => {
+    vi.mocked(listMeetingTypes).mockResolvedValue({
+      data: [firstType],
+      status: 200,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await screen.findByRole('listitem')
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+
+    // Подсказка не додумывает суффиксы вида «-2»: id остаётся как есть.
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+    expect(screen.getByText(ID_TAKEN)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Создать' })).toBeDisabled()
+  })
+
+  it('shows the same collision text when the server answers 409 meeting-type-exists', async () => {
+    mockEmptyTypes()
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: {
+        type: 'meeting-type-exists',
+        title: 'Конфликт',
+        status: 409,
+        detail: 'Тип встречи с таким id уже существует.',
+        instance: '/api/meeting-types',
+      },
+      status: 409,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    await user.type(title, 'Знакомство')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText(ID_TAKEN)).toBeVisible()
+
+    // Остальные значения сохраняются.
+    expect(title).toHaveValue('Знакомство')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
   })
 })

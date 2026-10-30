@@ -15,11 +15,19 @@ import {
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createMeetingType, listMeetingTypes } from '../api/generated/booking'
-import type { MeetingType, MeetingTypeCreateRequest } from '../api/generated/booking'
+import type {
+  MeetingType,
+  MeetingTypeCreateRequest,
+  ProblemDetails,
+} from '../api/generated/booking'
 import { transliterate } from '../lib/transliterate'
 
 // Подсказка под полем id, пока id не правили руками (спека #23, решение #17).
 const ID_HINT = 'подставлено из названия — можно изменить'
+// Коллизия с загруженным списком и серверный 409 meeting-type-exists показываются одним текстом.
+const ID_TAKEN = 'Такой id уже занят — измените его'
+// Единый текст отказа, который нельзя разложить по полям (сеть, 5xx, неразобранный 400).
+const CREATE_FAILED = 'Не удалось создать тип встречи'
 
 // Ограничения зеркалят контракт (contract/main.tsp): длительность 15–480 минут шагом 5,
 // поля формы по умолчанию: длительность 30, остальные пустые.
@@ -46,6 +54,22 @@ async function fetchTypes(): Promise<TypesState> {
   } catch {
     return { status: 'error', types: [] }
   }
+}
+
+// Клиент orval не бросает исключений на HTTP-ошибках: статус в unions разрешает
+// только 201/400/409, но в рантайме там бывает что угодно (5xx, пустое тело),
+// поэтому тело ошибки проверяем до разбора.
+function isProblemDetails(value: unknown): value is ProblemDetails {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const problem = value as ProblemDetails
+  return (
+    typeof problem.type === 'string' &&
+    typeof problem.title === 'string' &&
+    typeof problem.status === 'number' &&
+    typeof problem.detail === 'string'
+  )
 }
 
 export function OwnerPage() {
@@ -104,18 +128,30 @@ export function OwnerPage() {
       }
 
       if (response.status === 400) {
-        setFieldErrors(response.data.errors ?? {})
+        // 400 без разбора ProblemDetails или без карты errors — общий отказ.
+        if (isProblemDetails(response.data) && response.data.errors) {
+          const serverErrors = response.data.errors
+          if (Object.keys(serverErrors).length > 0) {
+            setFieldErrors(serverErrors)
+            return
+          }
+        }
+        setCreateError(CREATE_FAILED)
         return
       }
 
       if (response.status === 409) {
-        setFieldErrors({ id: [response.data.detail] })
+        if (isProblemDetails(response.data) && response.data.type === 'meeting-type-exists') {
+          setFieldErrors({ id: [ID_TAKEN] })
+          return
+        }
+        setCreateError(CREATE_FAILED)
         return
       }
 
-      setCreateError('Не удалось создать тип встречи')
+      setCreateError(CREATE_FAILED)
     } catch {
-      setCreateError('Не удалось создать тип встречи')
+      setCreateError(CREATE_FAILED)
     } finally {
       setSaving(false)
     }
@@ -125,6 +161,10 @@ export function OwnerPage() {
     event.preventDefault()
     void createType()
   }
+
+  // Коллизия видна до отправки: id совпадает с уже созданным типом из загруженного
+  // списка. Суффиксы вида «-2» не добавляются — владелец правит id сам (спека #17).
+  const collides = id !== '' && typesState.types.some((type) => type.id === id)
 
   return (
     <Container size="lg" py="xl">
@@ -180,11 +220,11 @@ export function OwnerPage() {
               maxLength={ID_MAX_LENGTH}
               description={idDetached ? undefined : ID_HINT}
               inputWrapperOrder={['label', 'input', 'description', 'error']}
-              error={fieldErrors.id?.[0]}
+              error={fieldErrors.id?.[0] ?? (collides ? ID_TAKEN : undefined)}
             />
 
             <Group>
-              <Button type="submit" loading={saving}>
+              <Button type="submit" loading={saving} disabled={saving || collides}>
                 Создать
               </Button>
             </Group>
