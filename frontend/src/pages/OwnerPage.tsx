@@ -5,8 +5,10 @@ import {
   Group,
   List,
   NumberInput,
+  SimpleGrid,
   Skeleton,
   Stack,
+  Table,
   Text,
   TextInput,
   Textarea,
@@ -14,12 +16,14 @@ import {
 } from '@mantine/core'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { createMeetingType, listMeetingTypes } from '../api/generated/booking'
+import { createMeetingType, listMeetingTypes, listMeetings } from '../api/generated/booking'
 import type {
+  Meeting,
   MeetingType,
   MeetingTypeCreateRequest,
   ProblemDetails,
 } from '../api/generated/booking'
+import { formatMeetingWhen, formatTimeOfDay } from '../lib/moscowTime'
 import { transliterate } from '../lib/transliterate'
 
 // Подсказка под полем id, пока id не правили руками (спека #23, решение #17).
@@ -43,6 +47,13 @@ type TypesState =
   | { status: 'loading'; types: [] }
   | { status: 'error'; types: [] }
   | { status: 'ready'; types: MeetingType[] }
+
+// Встречи хранятся и в состояниях загрузки и ошибки, чтобы уже показанные
+// данные не исчезали при неудачном обновлении.
+type MeetingsState =
+  | { status: 'loading'; meetings: Meeting[] }
+  | { status: 'error'; meetings: Meeting[] }
+  | { status: 'ready'; meetings: Meeting[] }
 
 type FieldName = 'title' | 'description' | 'durationMinutes' | 'id'
 
@@ -100,6 +111,16 @@ async function fetchTypes(): Promise<TypesState> {
   }
 }
 
+// null означает неудачу: вызывающий сохраняет уже показанные встречи.
+async function fetchMeetings(): Promise<Meeting[] | null> {
+  try {
+    const response = await listMeetings()
+    return response.status === 200 ? response.data : null
+  } catch {
+    return null
+  }
+}
+
 // Клиент orval не бросает исключений на HTTP-ошибках: статус в unions разрешает
 // только 201/400/409, но в рантайме там бывает что угодно (5xx, пустое тело),
 // поэтому тело ошибки проверяем до разбора.
@@ -130,11 +151,45 @@ export function OwnerPage() {
   const [created, setCreated] = useState(false)
   const [saving, setSaving] = useState(false)
   const [typesState, setTypesState] = useState<TypesState>({ status: 'loading', types: [] })
+  const [meetingsState, setMeetingsState] = useState<MeetingsState>({
+    status: 'loading',
+    meetings: [],
+  })
+  const [meetingsUpdatedAt, setMeetingsUpdatedAt] = useState<Date | null>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchTypes().then(setTypesState)
   }, [])
+
+  // Свежесть без polling: запрос при открытии страницы и при возврате фокуса
+  // на вкладку (спека #23, решение #18).
+  useEffect(() => {
+    refreshMeetings()
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        refreshMeetings()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  function refreshMeetings() {
+    setMeetingsState((prev) => ({ status: 'loading', meetings: prev.meetings }))
+
+    void fetchMeetings().then((meetings) => {
+      if (meetings) {
+        setMeetingsState({ status: 'ready', meetings })
+        setMeetingsUpdatedAt(new Date())
+        return
+      }
+
+      setMeetingsState((prev) => ({ status: 'error', meetings: prev.meetings }))
+    })
+  }
 
   // После 201 фокус возвращается в «Название» (спека #18). Поля в этот момент
   // уже разблокированы: created и saving обновляются одним рендером.
@@ -277,124 +332,209 @@ export function OwnerPage() {
       <Stack gap="xl">
         <Title order={1}>Страница владельца</Title>
 
-        <form onSubmit={submit}>
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl">
+          <Stack gap="xl">
+            <form onSubmit={submit}>
+              <Stack gap="md">
+                <Title order={2}>Новый тип встречи</Title>
+
+                {created && (
+                  <Alert color="green" withCloseButton={false}>
+                    Тип встречи создан
+                  </Alert>
+                )}
+
+                {createError && (
+                  <Alert color="red" withCloseButton={false}>
+                    {createError}{' '}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      disabled={saving}
+                      onClick={retry}
+                    >
+                      Повторить
+                    </Button>
+                  </Alert>
+                )}
+
+                <TextInput
+                  ref={titleInputRef}
+                  label="Название"
+                  value={title}
+                  onChange={(event) => handleTitleChange(event.currentTarget.value)}
+                  onBlur={() => markTouched('title')}
+                  disabled={saving}
+                  maxLength={TITLE_MAX_LENGTH}
+                  error={shownError('title')}
+                />
+
+                <Textarea
+                  label="Описание"
+                  value={description}
+                  onChange={(event) => handleDescriptionChange(event.currentTarget.value)}
+                  onBlur={() => markTouched('description')}
+                  disabled={saving}
+                  maxLength={DESCRIPTION_MAX_LENGTH}
+                  error={shownError('description')}
+                />
+
+                <NumberInput
+                  label="Длительность, мин"
+                  value={duration}
+                  onChange={handleDurationChange}
+                  onBlur={() => markTouched('durationMinutes')}
+                  disabled={saving}
+                  min={DURATION_MIN_MINUTES}
+                  max={DURATION_MAX_MINUTES}
+                  step={DURATION_STEP_MINUTES}
+                  error={shownError('durationMinutes')}
+                />
+
+                <TextInput
+                  label="Идентификатор"
+                  value={id}
+                  onChange={(event) => handleIdChange(event.currentTarget.value)}
+                  onBlur={() => markTouched('id')}
+                  disabled={saving}
+                  maxLength={ID_MAX_LENGTH}
+                  description={idDetached ? undefined : ID_HINT}
+                  inputWrapperOrder={['label', 'input', 'description', 'error']}
+                  error={idError}
+                />
+
+                <Group>
+                  <Button type="submit" loading={saving} disabled={saving || formInvalid}>
+                    Создать
+                  </Button>
+                </Group>
+              </Stack>
+            </form>
+
+            <Stack gap="md">
+              <Title order={2}>Типы встреч</Title>
+
+              {typesState.status === 'loading' && (
+                <Stack gap="xs">
+                  <Skeleton height={22} radius="sm" />
+                  <Skeleton height={22} radius="sm" width="80%" />
+                </Stack>
+              )}
+
+              {typesState.status === 'error' && (
+                <Alert color="red" withCloseButton={false}>
+                  Не удалось загрузить типы встреч{' '}
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => fetchTypes().then(setTypesState)}
+                  >
+                    Повторить
+                  </Button>
+                </Alert>
+              )}
+
+              {typesState.status === 'ready' && typesState.types.length === 0 && (
+                <Stack gap={0}>
+                  <Text c="dimmed">Типы встреч ещё не созданы</Text>
+                  <Text c="dimmed" fz="sm">
+                    Заполните форму «Новый тип встречи», чтобы создать первый тип.
+                  </Text>
+                </Stack>
+              )}
+
+              {typesState.status === 'ready' && typesState.types.length > 0 && (
+                <List withPadding={false}>
+                  {typesState.types.map((type) => (
+                    <List.Item key={type.id}>
+                      <Group justify="space-between" gap="md">
+                        <Stack gap={0}>
+                          <Text fw={600}>{type.title}</Text>
+                          <Text fz="sm" c="dimmed">
+                            {type.id}
+                          </Text>
+                        </Stack>
+                        <Text fz="sm">{type.durationMinutes} мин</Text>
+                      </Group>
+                    </List.Item>
+                  ))}
+                </List>
+              )}
+            </Stack>
+          </Stack>
+
           <Stack gap="md">
-            <Title order={2}>Новый тип встречи</Title>
+            <Group justify="space-between" align="center" gap="sm" wrap="wrap">
+              <Title order={2}>Предстоящие встречи</Title>
+              <Group gap="sm" align="center">
+                {meetingsUpdatedAt && (
+                  <Text fz="sm" c="dimmed">
+                    Обновлено в {formatTimeOfDay(meetingsUpdatedAt)}
+                  </Text>
+                )}
+                <Button
+                  variant="default"
+                  size="xs"
+                  loading={meetingsState.status === 'loading'}
+                  onClick={refreshMeetings}
+                >
+                  Обновить
+                </Button>
+              </Group>
+            </Group>
 
-            {created && (
-              <Alert color="green" withCloseButton={false}>
-                Тип встречи создан
-              </Alert>
-            )}
+            <Text fz="sm" c="dimmed">
+              Время указано по Москве (UTC+3)
+            </Text>
 
-            {createError && (
+            {meetingsState.status === 'error' && (
               <Alert color="red" withCloseButton={false}>
-                {createError}{' '}
-                <Button type="button" variant="outline" size="xs" disabled={saving} onClick={retry}>
+                Не удалось загрузить предстоящие встречи{' '}
+                <Button variant="outline" size="xs" onClick={refreshMeetings}>
                   Повторить
                 </Button>
               </Alert>
             )}
 
-            <TextInput
-              ref={titleInputRef}
-              label="Название"
-              value={title}
-              onChange={(event) => handleTitleChange(event.currentTarget.value)}
-              onBlur={() => markTouched('title')}
-              disabled={saving}
-              maxLength={TITLE_MAX_LENGTH}
-              error={shownError('title')}
-            />
+            {meetingsState.status === 'loading' && meetingsState.meetings.length === 0 && (
+              <div role="status" aria-label="Загрузка предстоящих встреч">
+                <Stack gap="xs">
+                  <Skeleton height={22} radius="sm" />
+                  <Skeleton height={22} radius="sm" width="80%" />
+                  <Skeleton height={22} radius="sm" width="60%" />
+                </Stack>
+              </div>
+            )}
 
-            <Textarea
-              label="Описание"
-              value={description}
-              onChange={(event) => handleDescriptionChange(event.currentTarget.value)}
-              onBlur={() => markTouched('description')}
-              disabled={saving}
-              maxLength={DESCRIPTION_MAX_LENGTH}
-              error={shownError('description')}
-            />
+            {meetingsState.status === 'ready' && meetingsState.meetings.length === 0 && (
+              <Text c="dimmed">Предстоящих встреч нет</Text>
+            )}
 
-            <NumberInput
-              label="Длительность, мин"
-              value={duration}
-              onChange={handleDurationChange}
-              onBlur={() => markTouched('durationMinutes')}
-              disabled={saving}
-              min={DURATION_MIN_MINUTES}
-              max={DURATION_MAX_MINUTES}
-              step={DURATION_STEP_MINUTES}
-              error={shownError('durationMinutes')}
-            />
-
-            <TextInput
-              label="Идентификатор"
-              value={id}
-              onChange={(event) => handleIdChange(event.currentTarget.value)}
-              onBlur={() => markTouched('id')}
-              disabled={saving}
-              maxLength={ID_MAX_LENGTH}
-              description={idDetached ? undefined : ID_HINT}
-              inputWrapperOrder={['label', 'input', 'description', 'error']}
-              error={idError}
-            />
-
-            <Group>
-              <Button type="submit" loading={saving} disabled={saving || formInvalid}>
-                Создать
-              </Button>
-            </Group>
+            {meetingsState.meetings.length > 0 && (
+              <Table striped withTableBorder>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Когда</Table.Th>
+                    <Table.Th>Тип встречи</Table.Th>
+                    <Table.Th>Длительность</Table.Th>
+                    <Table.Th>Гость</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {meetingsState.meetings.map((meeting) => (
+                    <Table.Tr key={meeting.id}>
+                      <Table.Td>{formatMeetingWhen(meeting.start, meeting.end)}</Table.Td>
+                      <Table.Td>{meeting.meetingTypeTitle}</Table.Td>
+                      <Table.Td>{meeting.durationMinutes} мин</Table.Td>
+                      <Table.Td>{meeting.guestName}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            )}
           </Stack>
-        </form>
-
-        <Stack gap="md">
-          <Title order={2}>Типы встреч</Title>
-
-          {typesState.status === 'loading' && (
-            <Stack gap="xs">
-              <Skeleton height={22} radius="sm" />
-              <Skeleton height={22} radius="sm" width="80%" />
-            </Stack>
-          )}
-
-          {typesState.status === 'error' && (
-            <Alert color="red" withCloseButton={false}>
-              Не удалось загрузить типы встреч{' '}
-              <Button variant="outline" size="xs" onClick={() => fetchTypes().then(setTypesState)}>
-                Повторить
-              </Button>
-            </Alert>
-          )}
-
-          {typesState.status === 'ready' && typesState.types.length === 0 && (
-            <Stack gap={0}>
-              <Text c="dimmed">Типы встреч ещё не созданы</Text>
-              <Text c="dimmed" fz="sm">
-                Заполните форму «Новый тип встречи», чтобы создать первый тип.
-              </Text>
-            </Stack>
-          )}
-
-          {typesState.status === 'ready' && typesState.types.length > 0 && (
-            <List withPadding={false}>
-              {typesState.types.map((type) => (
-                <List.Item key={type.id}>
-                  <Group justify="space-between" gap="md">
-                    <Stack gap={0}>
-                      <Text fw={600}>{type.title}</Text>
-                      <Text fz="sm" c="dimmed">
-                        {type.id}
-                      </Text>
-                    </Stack>
-                    <Text fz="sm">{type.durationMinutes} мин</Text>
-                  </Group>
-                </List.Item>
-              ))}
-            </List>
-          )}
-        </Stack>
+        </SimpleGrid>
       </Stack>
     </Container>
   )
