@@ -23,6 +23,9 @@ internal static class Problems
     public static IResult NotFound(string instance) =>
         Create("not-found", "Не найдено", StatusCodes.Status404NotFound, instance, "Маршрут API не существует.");
 
+    public static IResult MeetingTypeNotFound(string instance) =>
+        Create("meeting-type-not-found", "Не найдено", StatusCodes.Status404NotFound, instance, "Тип встречи с таким id не найден.");
+
     public static IResult MeetingTypeExists(string instance) =>
         Create("meeting-type-exists", "Конфликт", StatusCodes.Status409Conflict, instance, "Тип встречи с таким id уже существует.");
 

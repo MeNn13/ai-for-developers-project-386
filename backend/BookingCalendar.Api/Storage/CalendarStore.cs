@@ -16,6 +16,14 @@ public sealed class CalendarStore
         }
     }
 
+    public MeetingType? FindMeetingType(string id)
+    {
+        lock (this)
+        {
+            return _meetingTypes.Find(type => string.Equals(type.Id, id, StringComparison.Ordinal));
+        }
+    }
+
     public bool TryAdd(MeetingType meetingType)
     {
         lock (this)
