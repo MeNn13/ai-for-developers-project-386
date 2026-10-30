@@ -176,6 +176,35 @@ describe('booking page', () => {
     expect(screen.getByRole('button', { name: 'Обновить' })).toBeVisible()
   })
 
+  it('keeps only working days of the window active and marks today', async () => {
+    const user = userEvent.setup()
+    vi.mocked(listMeetingTypes).mockResolvedValue({
+      data: meetingTypes,
+      status: 200,
+      headers: new Headers(),
+    })
+    vi.mocked(listSlots).mockResolvedValue({
+      data: slotsResponse([{ ...windowDays()[0], slots: [freeSlot] }, ...windowDays().slice(1)]),
+      status: 200,
+      headers: new Headers(),
+    })
+
+    renderBookingPage()
+    await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+    await screen.findByRole('button', { name: '10:00–10:30' })
+
+    // Сегодня — первый день окна: он отмечен бейджем и выбран по умолчанию.
+    expect(screen.getByText('сегодня')).toBeVisible()
+    expect(screen.getByRole('button', { name: '2 ноября 2026' })).toHaveAttribute(
+      'data-selected',
+      'true',
+    )
+
+    // Суббота и день за границей окна недоступны, ошибки при этом нет.
+    expect(screen.getByRole('button', { name: '7 ноября 2026' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '16 ноября 2026' })).toBeDisabled()
+  })
+
   it('asks to choose a meeting type while the calendar stays disabled', async () => {
     vi.mocked(listMeetingTypes).mockResolvedValue({
       data: meetingTypes,
