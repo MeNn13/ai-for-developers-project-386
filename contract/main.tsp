@@ -115,7 +115,8 @@ op createMeetingType(@body body: MeetingTypeCreateRequest):
   },
   #{ description: "Неизвестный meetingTypeId." }
 )
-op listSlots(@query meetingTypeId: string): SlotsResponse | ValidationError | MeetingTypeNotFoundError;
+op listSlots(@query @doc("Идентификатор типа встречи, для которого считаются слоты.")
+  meetingTypeId: string): SlotsResponse | ValidationError | MeetingTypeNotFoundError;
 
 @doc("Тип встречи: шаблон с названием, описанием и длительностью.")
 @example(#{

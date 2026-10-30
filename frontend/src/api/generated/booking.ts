@@ -166,6 +166,9 @@ export interface SlotsResponse {
 }
 
 export type ListSlotsParams = {
+/**
+ * Идентификатор типа встречи, для которого считаются слоты.
+ */
 meetingTypeId: string;
 };
 
