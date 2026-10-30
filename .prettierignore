@@ -22,3 +22,6 @@ backend
 
 # Installed and owned by Hexlet: this file must not be edited
 .github/workflows/hexlet-check.yml
+
+# Written by the release-please bot on every release, never edited by hand
+CHANGELOG.md

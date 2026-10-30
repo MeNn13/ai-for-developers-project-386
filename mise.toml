@@ -38,7 +38,7 @@ run = "npm run generate --workspace contract"
 run = "npm run generate --workspace contract && git diff --exit-code -- contract/openapi frontend/src/api/generated"
 
 [tasks.lint]
-depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "lint:docs", "lint:docker", "knip", "syncpack", "agent:lint", "contract:lint"]
+depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "lint:docs", "lint:docker", "lint:encoding", "knip", "syncpack", "agent:lint", "contract:lint"]
 
 [tasks."lint:dotnet"]
 run = "dotnet format backend/BookingCalendar.sln --verify-no-changes --no-restore"
@@ -63,6 +63,9 @@ run = "rumdl check ."
 
 [tasks."lint:docker"]
 run = "hadolint Dockerfile"
+
+[tasks."lint:encoding"]
+run = "node scripts/encoding-check.mjs"
 
 [tasks.knip]
 run = "npm run knip"
