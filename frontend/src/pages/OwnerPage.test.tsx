@@ -353,4 +353,35 @@ describe('owner page', () => {
     expect(await screen.findByText('Не удалось создать тип встречи')).toBeVisible()
     expect(screen.getByLabelText('Название')).toHaveValue('Знакомство')
   })
+
+  it('resets the form to defaults and returns focus to the title on success', async () => {
+    vi.mocked(listMeetingTypes)
+      .mockResolvedValueOnce({ data: [], status: 200, headers: new Headers() })
+      .mockResolvedValueOnce({ data: [firstType], status: 200, headers: new Headers() })
+    vi.mocked(createMeetingType).mockResolvedValue({
+      data: firstType,
+      status: 201,
+      headers: new Headers(),
+    })
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+    await user.type(screen.getByLabelText('Описание'), 'Короткий созвон')
+    await user.click(screen.getByRole('button', { name: 'Создать' }))
+
+    expect(await screen.findByText('Тип встречи создан')).toBeVisible()
+
+    // Умолчания: длительность снова 30, текст очищен, id снова свободен от подсказки.
+    const title = screen.getByLabelText('Название')
+    expect(title).toHaveValue('')
+    expect(title).toHaveFocus()
+    expect(screen.getByLabelText('Описание')).toHaveValue('')
+    expect(screen.getByLabelText('Длительность, мин')).toHaveValue('30')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('')
+    expect(screen.getByText(ID_HINT)).toBeVisible()
+
+    // Список типов перезапрошен ровно один раз сверх стартового.
+    expect(listMeetingTypes).toHaveBeenCalledTimes(2)
+  })
 })

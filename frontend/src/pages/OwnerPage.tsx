@@ -12,7 +12,7 @@ import {
   Textarea,
   Title,
 } from '@mantine/core'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createMeetingType, listMeetingTypes } from '../api/generated/booking'
 import type {
@@ -130,10 +130,19 @@ export function OwnerPage() {
   const [created, setCreated] = useState(false)
   const [saving, setSaving] = useState(false)
   const [typesState, setTypesState] = useState<TypesState>({ status: 'loading', types: [] })
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchTypes().then(setTypesState)
   }, [])
+
+  // После 201 фокус возвращается в «Название» (спека #18). Поля в этот момент
+  // уже разблокированы: created и saving обновляются одним рендером.
+  useEffect(() => {
+    if (created) {
+      titleInputRef.current?.focus()
+    }
+  }, [created])
 
   function markTouched(field: FieldName) {
     setTouched((prev) => ({ ...prev, [field]: true }))
@@ -288,6 +297,7 @@ export function OwnerPage() {
             )}
 
             <TextInput
+              ref={titleInputRef}
               label="Название"
               value={title}
               onChange={(event) => handleTitleChange(event.currentTarget.value)}
