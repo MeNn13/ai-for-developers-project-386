@@ -40,8 +40,8 @@ internal static class SlotEndpoints
         }
 
         // ADR 0001: снимок встреч читается под тем же lock, что и типы встреч.
-        // Встреч пока нет — их создание и хранение приходят с бронированием (#27).
-        var response = SlotRules.BuildResponse(meetingType.DurationMinutes, now, []);
+        var occupied = store.ListOccupiedIntervals();
+        var response = SlotRules.BuildResponse(meetingType.DurationMinutes, now, occupied);
         return Results.Json(response);
     }
 }

@@ -29,6 +29,12 @@ internal static class Problems
     public static IResult MeetingTypeExists(string instance) =>
         Create("meeting-type-exists", "Конфликт", StatusCodes.Status409Conflict, instance, "Тип встречи с таким id уже существует.");
 
+    public static IResult SlotNotBookable(string instance) =>
+        Create("slot-not-bookable", "Слот недоступен", StatusCodes.Status400BadRequest, instance, "Это время не является слотом записи.");
+
+    public static IResult SlotTaken(string instance) =>
+        Create("slot-taken", "Слот занят", StatusCodes.Status409Conflict, instance, "Это время уже занято другой встречей.");
+
     private static IResult Create(
         string slug,
         string title,

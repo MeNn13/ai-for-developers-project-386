@@ -84,7 +84,7 @@ public class ContractConformanceTests(TestApp app) : IClassFixture<TestApp>
         string method) => method switch
         {
             "get" => await client.GetAsync(await UrlWithRequiredParametersAsync(client, path)),
-            "post" => await client.PostAsync(path, ContractRequestContent(path, method)),
+            "post" => await client.PostAsync(path, await ContractRequestContentAsync(client, path, method)),
             _ => throw new NotSupportedException($"Метод «{method}» не поддерживается тестом."),
         };
 
@@ -108,10 +108,34 @@ public class ContractConformanceTests(TestApp app) : IClassFixture<TestApp>
     }
 
     // Тело POST-запроса берётся из example схемы запроса в контракте.
-    private static StringContent ContractRequestContent(string path, string method)
+    // Бронь ссылается на тип встречи, поэтому тип из примера создаётся публичным HTTP.
+    private static async Task<StringContent> ContractRequestContentAsync(
+        HttpClient client,
+        string path,
+        string method)
     {
-        var example = OpenApiContract.Instance
-            .RequestExample(OpenApiContract.Instance.RequestSchemaName(path, method));
+        var schemaName = OpenApiContract.Instance.RequestSchemaName(path, method);
+        var example = OpenApiContract.Instance.RequestExample(schemaName);
+
+        if (path == "/api/meetings")
+        {
+            await EnsureMeetingTypeAsync(client, example["meetingTypeId"]!.GetValue<string>());
+        }
+
         return new StringContent(example.ToJsonString(), Encoding.UTF8, "application/json");
+    }
+
+    private static async Task EnsureMeetingTypeAsync(HttpClient client, string id)
+    {
+        using var content = new StringContent(
+            $$"""{"id":"{{id}}","title":"Знакомство","description":"","durationMinutes":30}""",
+            Encoding.UTF8,
+            "application/json");
+        using var response = await client.PostAsync("/api/meeting-types", content);
+
+        // 409 значит, что тип уже создан другой операцией того же прогона.
+        Assert.True(
+            response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Conflict,
+            $"Не удалось подготовить тип встречи {id}: {(int)response.StatusCode}.");
     }
 }
