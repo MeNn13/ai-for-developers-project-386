@@ -106,12 +106,31 @@ function dayWithSlots(slots: Slot[]): SlotsResponse {
   return slotsResponse([{ ...windowDays()[0], slots }, ...windowDays().slice(1)])
 }
 
+// Слоты конкретного дня окна — чтобы проверить сохранение выбранного дня при перезапросе.
+function windowWithSlots(dayIndex: number, slots: Slot[]): SlotsResponse {
+  const days = windowDays().map((day, index) => (index === dayIndex ? { ...day, slots } : day))
+  return slotsResponse(days)
+}
+
 // Тот же слот, что пытались забронировать, но уже занятый: так его отдаёт перезапрос.
 const takenFormerFreeSlot: Slot = { ...freeSlot, available: false }
 const lateFreeSlot: Slot = {
   start: '2026-11-02T11:00:00+03:00',
   end: '2026-11-02T11:30:00+03:00',
   available: true,
+}
+
+// Слоты на втором рабочем дне окна (ср, 4 ноября).
+const laterFreeSlot: Slot = {
+  start: '2026-11-04T10:00:00+03:00',
+  end: '2026-11-04T10:30:00+03:00',
+  available: true,
+}
+const takenLaterFreeSlot: Slot = { ...laterFreeSlot, available: false }
+const takenLaterSlot: Slot = {
+  start: '2026-11-04T10:30:00+03:00',
+  end: '2026-11-04T11:00:00+03:00',
+  available: false,
 }
 
 function rejection(
@@ -567,5 +586,45 @@ describe('booking page', () => {
       'aria-pressed',
       'true',
     )
+  })
+
+  it('recovers from a slot-not-bookable rejection keeping type, name and chosen day', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    // Слоты на втором рабочем дне окна (ср, 4 ноября): после отказа день обязан остаться.
+    vi.mocked(listSlots)
+      .mockResolvedValueOnce({
+        data: windowWithSlots(2, [laterFreeSlot, takenLaterSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+      .mockResolvedValueOnce({
+        data: windowWithSlots(2, [takenLaterFreeSlot, takenLaterSlot]),
+        status: 200,
+        headers: new Headers(),
+      })
+    vi.mocked(createMeeting).mockResolvedValueOnce(rejection(400, 'slot-not-bookable'))
+
+    renderBookingPage()
+    await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+    await user.click(await screen.findByRole('button', { name: '4 ноября 2026' }))
+    await user.click(await screen.findByRole('button', { name: '10:00–10:30' }))
+    await user.type(screen.getByLabelText('Ваше имя'), 'Анна')
+    await user.click(screen.getByRole('button', { name: 'Продолжить' }))
+
+    expect(await screen.findByText('Это время больше недоступно. Выберите другое.')).toBeVisible()
+    await waitFor(() => expect(listSlots).toHaveBeenCalledTimes(2))
+
+    // Выбранный день и тип сохранены, выбор слота снят, имя на месте.
+    expect(screen.getByRole('button', { name: '4 ноября 2026' })).toHaveAttribute(
+      'data-selected',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeVisible()
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    expect(screen.getByRole('button', { name: '10:00–10:30 занято' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Продолжить' })).toBeDisabled()
+    // Автоповтора брони нет.
+    expect(createMeeting).toHaveBeenCalledTimes(1)
   })
 })

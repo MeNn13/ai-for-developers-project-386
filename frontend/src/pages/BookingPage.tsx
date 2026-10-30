@@ -42,6 +42,8 @@ const GUEST_NAME_MAX_LENGTH = 100
 
 // Отказ «слот только что заняли» (спека #23, состояние 13).
 const SLOT_TAKEN_MESSAGE = 'Это время только что заняли. Выберите другое время.'
+// Отказ «слот больше недоступен по правилам» — то же поведение, другой текст (спека #15-14).
+const SLOT_NOT_BOOKABLE_MESSAGE = 'Это время больше недоступно. Выберите другое.'
 
 async function fetchTypes(): Promise<TypesState> {
   try {
@@ -266,6 +268,15 @@ export function BookingPage() {
       if (response.status === 409 && isProblemDetails(response.data)) {
         if (response.data.type === 'slot-taken') {
           setSlotRejection(SLOT_TAKEN_MESSAGE)
+          void loadSlots(selectedType, true)
+          return
+        }
+      }
+
+      // 400 slot-not-bookable — то же восстановление, другой текст (спека #15-14).
+      if (response.status === 400 && isProblemDetails(response.data)) {
+        if (response.data.type === 'slot-not-bookable') {
+          setSlotRejection(SLOT_NOT_BOOKABLE_MESSAGE)
           void loadSlots(selectedType, true)
           return
         }
