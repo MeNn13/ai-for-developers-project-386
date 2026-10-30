@@ -16,6 +16,10 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createMeetingType, listMeetingTypes } from '../api/generated/booking'
 import type { MeetingType, MeetingTypeCreateRequest } from '../api/generated/booking'
+import { transliterate } from '../lib/transliterate'
+
+// Подсказка под полем id, пока id не правили руками (спека #23, решение #17).
+const ID_HINT = 'подставлено из названия — можно изменить'
 
 // Ограничения зеркалят контракт (contract/main.tsp): длительность 15–480 минут шагом 5,
 // поля формы по умолчанию: длительность 30, остальные пустые.
@@ -49,6 +53,8 @@ export function OwnerPage() {
   const [description, setDescription] = useState('')
   const [duration, setDuration] = useState<number | string>(DURATION_DEFAULT_MINUTES)
   const [id, setId] = useState('')
+  // id отвязан от названия после первой ручной правки; пустое значение возвращает связь.
+  const [idDetached, setIdDetached] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({})
   const [createError, setCreateError] = useState<string | null>(null)
   const [created, setCreated] = useState(false)
@@ -58,6 +64,18 @@ export function OwnerPage() {
   useEffect(() => {
     fetchTypes().then(setTypesState)
   }, [])
+
+  function handleTitleChange(value: string) {
+    setTitle(value)
+    if (!idDetached) {
+      setId(transliterate(value))
+    }
+  }
+
+  function handleIdChange(value: string) {
+    setId(value)
+    setIdDetached(value !== '')
+  }
 
   async function createType() {
     setSaving(true)
@@ -79,6 +97,7 @@ export function OwnerPage() {
         setDescription('')
         setDuration(DURATION_DEFAULT_MINUTES)
         setId('')
+        setIdDetached(false)
         setCreated(true)
         setTypesState(await fetchTypes())
         return
@@ -131,7 +150,7 @@ export function OwnerPage() {
             <TextInput
               label="Название"
               value={title}
-              onChange={(event) => setTitle(event.currentTarget.value)}
+              onChange={(event) => handleTitleChange(event.currentTarget.value)}
               maxLength={TITLE_MAX_LENGTH}
               error={fieldErrors.title?.[0]}
             />
@@ -157,8 +176,10 @@ export function OwnerPage() {
             <TextInput
               label="Идентификатор"
               value={id}
-              onChange={(event) => setId(event.currentTarget.value)}
+              onChange={(event) => handleIdChange(event.currentTarget.value)}
               maxLength={ID_MAX_LENGTH}
+              description={idDetached ? undefined : ID_HINT}
+              inputWrapperOrder={['label', 'input', 'description', 'error']}
               error={fieldErrors.id?.[0]}
             />
 

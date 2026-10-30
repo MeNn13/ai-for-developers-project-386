@@ -20,6 +20,16 @@ function renderOwnerPage() {
   )
 }
 
+function mockEmptyTypes() {
+  vi.mocked(listMeetingTypes).mockResolvedValue({
+    data: [],
+    status: 200,
+    headers: new Headers(),
+  })
+}
+
+const ID_HINT = 'подставлено из названия — можно изменить'
+
 const firstType: MeetingType = {
   id: 'znakomstvo',
   title: 'Знакомство',
@@ -76,7 +86,10 @@ describe('owner page', () => {
     expect(await screen.findByText('Типы встреч ещё не созданы')).toBeVisible()
 
     await user.type(screen.getByLabelText('Название'), 'Знакомство')
-    await user.type(screen.getByLabelText('Идентификатор'), 'znakomstvo')
+    // Ручная правка id: сначала отцепить значение от подсказки, затем ввести своё.
+    const idInput = screen.getByLabelText('Идентификатор')
+    await user.clear(idInput)
+    await user.type(idInput, 'znakomstvo')
     await user.click(screen.getByRole('button', { name: 'Создать' }))
 
     await waitFor(() =>
@@ -96,5 +109,71 @@ describe('owner page', () => {
     expect(screen.getByLabelText('Название')).toHaveValue('')
     expect(screen.getByLabelText('Идентификатор')).toHaveValue('')
     expect(screen.getByLabelText('Длительность, мин')).toHaveValue('30')
+  })
+
+  it('suggests id from the title and shows the hint while id is untouched', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    await user.type(screen.getByLabelText('Название'), 'Знакомство')
+
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+    expect(screen.getByText(ID_HINT)).toBeVisible()
+  })
+
+  it('detaches id from the title after the first manual edit', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    const id = screen.getByLabelText('Идентификатор')
+
+    await user.type(title, 'Знакомство')
+    await user.type(id, '2026')
+
+    expect(id).toHaveValue('znakomstvo2026')
+    expect(screen.queryByText(ID_HINT)).not.toBeInTheDocument()
+
+    // Последующие изменения названия больше не трогают id.
+    await user.type(title, '!')
+
+    expect(id).toHaveValue('znakomstvo2026')
+  })
+
+  it('re-couples id to the title when id is cleared to empty', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+    const id = screen.getByLabelText('Идентификатор')
+
+    await user.type(title, 'Знакомство')
+    await user.type(id, '2026')
+    await user.clear(id)
+
+    expect(screen.getByText(ID_HINT)).toBeVisible()
+
+    await user.clear(title)
+    await user.type(title, 'Воркшоп')
+
+    expect(id).toHaveValue('vorkshop')
+  })
+
+  it('clears the suggested id when the title is cleared', async () => {
+    mockEmptyTypes()
+    const user = userEvent.setup()
+    renderOwnerPage()
+
+    const title = screen.getByLabelText('Название')
+
+    await user.type(title, 'Знакомство')
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('znakomstvo')
+
+    await user.clear(title)
+
+    expect(screen.getByLabelText('Идентификатор')).toHaveValue('')
   })
 })
