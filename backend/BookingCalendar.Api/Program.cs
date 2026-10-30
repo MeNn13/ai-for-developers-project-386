@@ -1,8 +1,12 @@
+using System.Text.Json;
+
 using BookingCalendar.Api.Contracts;
+using BookingCalendar.Api.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddSingleton<CalendarStore>();
 
 var app = builder.Build();
 
@@ -15,6 +19,21 @@ app.UseStaticFiles();
 app.MapOpenApi();
 
 app.MapGet("/api/health", () => new HealthResponse("ok"));
+
+app.MapGet("/api/meeting-types", (CalendarStore store) => store.ListMeetingTypes());
+
+app.MapPost("/api/meeting-types", async (HttpRequest request, CalendarStore store) =>
+{
+    using var document = await JsonDocument.ParseAsync(request.Body);
+    var root = document.RootElement;
+    var created = new MeetingType(
+        root.GetProperty("id").GetString()!,
+        root.GetProperty("title").GetString()!,
+        root.GetProperty("description").GetString()!,
+        root.GetProperty("durationMinutes").GetInt32());
+    store.Add(created);
+    return Results.Json(created, statusCode: StatusCodes.Status201Created);
+});
 
 // An unknown API route answers 404 instead of falling through to the SPA
 // fallback below, which would return HTML with 200.
