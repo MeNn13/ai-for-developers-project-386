@@ -19,15 +19,9 @@ import 'dayjs/locale/ru'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { createMeeting, listMeetingTypes, listSlots } from '../api/generated/booking'
-import type {
-  Meeting,
-  MeetingType,
-  ProblemDetails,
-  Slot,
-  SlotDay,
-  SlotsResponse,
-} from '../api/generated/booking'
-import { formatTimeOfDay } from '../lib/moscowTime'
+import type { Meeting, MeetingType, Slot, SlotDay, SlotsResponse } from '../api/generated/booking'
+import { formatMeetingConfirmation, formatTimeOfDay, formatTimeRange } from '../lib/moscowTime'
+import { isProblemDetails } from '../lib/problemDetails'
 
 type TypesState =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; types: MeetingType[] }
@@ -85,44 +79,6 @@ function defaultDay(days: SlotDay[]): string | null {
 
 function hasFreeSlot(response: SlotsResponse): boolean {
   return response.days.some((day) => day.slots.some((slot) => slot.available))
-}
-
-// Время форматируется по timezone из ответа, а не по часовому поясу браузера.
-function formatTime(value: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('ru-RU', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(value))
-}
-
-// Подтверждение: «Пн, 2 ноября, 10:00–10:30 (МСК)».
-function formatMeetingTime(start: string, end: string, timeZone: string): string {
-  const date = new Intl.DateTimeFormat('ru-RU', {
-    timeZone,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-  }).format(new Date(start))
-
-  return `${date.charAt(0).toUpperCase()}${date.slice(1)}, ${formatTime(start, timeZone)}–${formatTime(end, timeZone)} (МСК)`
-}
-
-// Клиент orval не бросает исключений на HTTP-ошибках: статус в unions разрешает
-// только объявленные в контракте коды, но в рантайме там бывает что угодно
-// (5xx, пустое или неразобранное тело), поэтому тело ошибки проверяем до разбора.
-function isProblemDetails(value: unknown): value is ProblemDetails {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-  const problem = value as ProblemDetails
-  return (
-    typeof problem.type === 'string' &&
-    typeof problem.title === 'string' &&
-    typeof problem.status === 'number' &&
-    typeof problem.detail === 'string'
-  )
 }
 
 export function BookingPage() {
@@ -353,7 +309,7 @@ export function BookingPage() {
               <Title order={2}>Встреча забронирована</Title>
               <Text fw={600}>{confirmation.meetingTypeTitle}</Text>
               <Text>
-                {formatMeetingTime(
+                {formatMeetingConfirmation(
                   confirmation.start,
                   confirmation.end,
                   timeZone ?? 'Europe/Moscow',
@@ -555,7 +511,7 @@ export function BookingPage() {
 
                     {daySlots.map((slot) => {
                       const label = timeZone
-                        ? `${formatTime(slot.start, timeZone)}–${formatTime(slot.end, timeZone)}`
+                        ? formatTimeRange(slot.start, slot.end, timeZone)
                         : slot.start
 
                       return (

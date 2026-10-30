@@ -17,13 +17,9 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createMeetingType, listMeetingTypes, listMeetings } from '../api/generated/booking'
-import type {
-  Meeting,
-  MeetingType,
-  MeetingTypeCreateRequest,
-  ProblemDetails,
-} from '../api/generated/booking'
+import type { Meeting, MeetingType, MeetingTypeCreateRequest } from '../api/generated/booking'
 import { formatMeetingWhen, formatTimeOfDay } from '../lib/moscowTime'
+import { isProblemDetails } from '../lib/problemDetails'
 import { transliterate } from '../lib/transliterate'
 
 // Подсказка под полем id, пока id не правили руками (спека #23, решение #17).
@@ -119,22 +115,6 @@ async function fetchMeetings(): Promise<Meeting[] | null> {
   } catch {
     return null
   }
-}
-
-// Клиент orval не бросает исключений на HTTP-ошибках: статус в unions разрешает
-// только 201/400/409, но в рантайме там бывает что угодно (5xx, пустое тело),
-// поэтому тело ошибки проверяем до разбора.
-function isProblemDetails(value: unknown): value is ProblemDetails {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-  const problem = value as ProblemDetails
-  return (
-    typeof problem.type === 'string' &&
-    typeof problem.title === 'string' &&
-    typeof problem.status === 'number' &&
-    typeof problem.detail === 'string'
-  )
 }
 
 export function OwnerPage() {
