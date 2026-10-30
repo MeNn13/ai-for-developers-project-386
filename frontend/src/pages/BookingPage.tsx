@@ -46,6 +46,8 @@ const SLOT_TAKEN_MESSAGE = 'Это время только что заняли. 
 const SLOT_NOT_BOOKABLE_MESSAGE = 'Это время больше недоступно. Выберите другое.'
 // Отказ «тип встречи исчез» — плашка, сброс к выбору типа, перезапрос типов (спека #15-15).
 const TYPE_NOT_FOUND_MESSAGE = 'Этот тип встречи больше недоступен. Выберите другой.'
+// Сеть, 5xx и неразобранные ответы — единая плашка с повтором (спека #15-17).
+const REQUEST_FAILED_MESSAGE = 'Не удалось выполнить запрос'
 
 async function fetchTypes(): Promise<TypesState> {
   try {
@@ -131,7 +133,7 @@ export function BookingPage() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
   const [guestName, setGuestName] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [bookingFailed, setBookingFailed] = useState(false)
+  const [requestFailed, setRequestFailed] = useState(false)
   const [slotRejection, setSlotRejection] = useState<string | null>(null)
   // Серверная ошибка errors.guestName показывается под полем (спека #15-16).
   const [guestNameError, setGuestNameError] = useState<string | undefined>(undefined)
@@ -200,7 +202,7 @@ export function BookingPage() {
     setVisibleMonth(null)
     setSelectedSlot(null)
     setGuestName('')
-    setBookingFailed(false)
+    setRequestFailed(false)
     setSlotRejection(null)
   }
 
@@ -209,6 +211,9 @@ export function BookingPage() {
       return
     }
 
+    // Смена дня относится к уже снятому слоту — старые плашки отказа больше не к месту.
+    setSlotRejection(null)
+    setRequestFailed(false)
     setSelectedDay(day)
     setSelectedSlot(null)
   }
@@ -216,6 +221,7 @@ export function BookingPage() {
   // Новый выбор слота снимает плашку отказа: она относилась к прежнему слоту.
   function selectSlot(slot: Slot) {
     setSlotRejection(null)
+    setRequestFailed(false)
     setSelectedSlot(slot)
   }
 
@@ -229,7 +235,7 @@ export function BookingPage() {
   function backToSlots() {
     setSelectedSlot(null)
     setGuestName('')
-    setBookingFailed(false)
+    setRequestFailed(false)
     setSlotRejection(null)
   }
 
@@ -242,7 +248,7 @@ export function BookingPage() {
     setVisibleMonth(null)
     setSelectedSlot(null)
     setGuestName('')
-    setBookingFailed(false)
+    setRequestFailed(false)
     setSlotRejection(null)
     refreshTypes()
   }
@@ -253,7 +259,7 @@ export function BookingPage() {
     }
 
     setSubmitting(true)
-    setBookingFailed(false)
+    setRequestFailed(false)
     setSlotRejection(null)
     setGuestNameError(undefined)
 
@@ -312,10 +318,10 @@ export function BookingPage() {
         }
       }
 
-      // Прочие отказы — тикет #28; здесь только общая плашка.
-      setBookingFailed(true)
+      // Прочие отказы: сеть, 5xx, неразобранные ответы — плашка с «Повторить» (спека #15-17).
+      setRequestFailed(true)
     } catch {
-      setBookingFailed(true)
+      setRequestFailed(true)
     } finally {
       setSubmitting(false)
     }
@@ -561,9 +567,15 @@ export function BookingPage() {
                       }}
                     />
 
-                    {bookingFailed && (
+                    {requestFailed && (
                       <Alert color="red" withCloseButton={false}>
-                        Не удалось забронировать встречу
+                        <Stack gap="xs" align="flex-start">
+                          <Text>{REQUEST_FAILED_MESSAGE}</Text>
+                          {/* Повтор отправляет тот же запрос с теми же значениями. */}
+                          <Button variant="outline" size="xs" onClick={() => void submitBooking()}>
+                            Повторить
+                          </Button>
+                        </Stack>
                       </Alert>
                     )}
 

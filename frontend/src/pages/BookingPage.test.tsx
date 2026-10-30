@@ -680,4 +680,36 @@ describe('booking page', () => {
     ).not.toBeInTheDocument()
     expect(screen.queryByText('Не удалось забронировать встречу')).not.toBeInTheDocument()
   })
+
+  it('keeps entered values and retries the same request after a network failure', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting)
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ data: bookedMeeting, status: 201, headers: new Headers() })
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    expect(await screen.findByText('Не удалось выполнить запрос')).toBeVisible()
+    // Введённые значения сохранены: слот выбран, имя на месте.
+    expect(screen.getByRole('button', { name: '10:00–10:30' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    // Слоты при сетевом отказе не перезапрашиваются.
+    expect(listSlots).toHaveBeenCalledTimes(1)
+
+    // «Повторить» отправляет тот же запрос с теми же значениями.
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+
+    expect(await screen.findByRole('heading', { name: 'Встреча забронирована' })).toBeVisible()
+    expect(createMeeting).toHaveBeenCalledTimes(2)
+    expect(createMeeting).toHaveBeenLastCalledWith({
+      meetingTypeId: 'znakomstvo',
+      start: '2026-11-02T10:00:00+03:00',
+      guestName: 'Анна',
+    })
+  })
 })
