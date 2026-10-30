@@ -112,6 +112,27 @@ public class SlotRulesTests
         Assert.Equal(expected, SlotRules.IsDurationAllowed(durationMinutes));
     }
 
+    [Fact]
+    public void DaySlotsAreUnavailableOnlyWhenTheyOverlapAMeeting()
+    {
+        var day = new DateOnly(2026, 11, 3);
+        var meetings = new[]
+        {
+            // Встреча кончается ровно в 10:00 и не занимает слот 10:00–10:30.
+            new OccupiedInterval(At(0, 9, 30), At(0, 10, 0)),
+            // Встреча ровно совпадает со слотом 10:30–11:00.
+            new OccupiedInterval(At(0, 10, 30), At(0, 11, 0)),
+        };
+
+        var result = SlotRules.BuildDay(day, durationMinutes: 30, s_now, meetings);
+
+        Assert.Equal(16, result.Slots.Count);
+        Assert.True(result.Slots[0].Available);
+        Assert.False(result.Slots[1].Available);
+        Assert.True(result.Slots[2].Available);
+        Assert.All(result.Slots.Skip(2), slot => Assert.True(slot.Available));
+    }
+
     private static DateTimeOffset At(int dayOffset, int hour, int minute) =>
         new(
             new DateTime(2026, 11, 3, 0, 0, 0, DateTimeKind.Unspecified)
