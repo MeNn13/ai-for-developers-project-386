@@ -1,19 +1,17 @@
 using System.Net;
 
-using Microsoft.AspNetCore.Mvc.Testing;
-
 namespace BookingCalendar.Api.Tests;
 
-public class UnknownRouteTests(WebApplicationFactory<Program> factory)
-    : IClassFixture<WebApplicationFactory<Program>>
+public class UnknownRouteTests(TestApp app) : IClassFixture<TestApp>
 {
     [Fact]
-    public async Task UnknownApiRouteReturnsNotFound()
+    public async Task UnknownApiRouteReturnsNotFoundProblem()
     {
-        using var client = factory.CreateClient();
+        using var client = app.CreateClient();
 
         using var response = await client.GetAsync("/api/missing");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        await ProblemAssertions.AssertProblem(response, "not-found");
     }
 }

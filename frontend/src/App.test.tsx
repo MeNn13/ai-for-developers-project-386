@@ -2,8 +2,16 @@ import { MantineProvider } from '@mantine/core'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AppRoutes } from './App'
+
+// Страница владельца обращается к API при монтировании: сгенерированный клиент
+// мокается на границе модуля, чтобы тесты роутинга не зависели от fetch.
+vi.mock('./api/generated/booking', () => ({
+  listMeetingTypes: vi.fn(async () => ({ data: [], status: 200, headers: new Headers() })),
+  listSlots: vi.fn(),
+  createMeetingType: vi.fn(),
+}))
 
 function renderAt(path: string) {
   return render(
@@ -43,7 +51,7 @@ describe('main page', () => {
     await user.click(screen.getByRole('link', { name: 'Записаться' }))
 
     expect(screen.getByRole('heading', { level: 1, name: 'Бронирование' })).toBeVisible()
-    expect(screen.getByText('Раздел в разработке')).toBeVisible()
+    expect(await screen.findByText('Типы встреч ещё не созданы')).toBeVisible()
   })
 
   it('opens the owner page from the header', async () => {
@@ -53,7 +61,7 @@ describe('main page', () => {
     await user.click(screen.getByRole('link', { name: 'Страница владельца' }))
 
     expect(screen.getByRole('heading', { level: 1, name: 'Страница владельца' })).toBeVisible()
-    expect(screen.getByText('Раздел в разработке')).toBeVisible()
+    expect(screen.getByRole('heading', { level: 2, name: 'Новый тип встречи' })).toBeVisible()
   })
 
   it('marks the current page in the header', () => {
