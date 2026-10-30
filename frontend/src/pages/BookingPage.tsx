@@ -19,7 +19,14 @@ import 'dayjs/locale/ru'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { createMeeting, listMeetingTypes, listSlots } from '../api/generated/booking'
-import type { Meeting, MeetingType, Slot, SlotDay, SlotsResponse } from '../api/generated/booking'
+import type {
+  Meeting,
+  MeetingType,
+  ProblemDetails,
+  Slot,
+  SlotDay,
+  SlotsResponse,
+} from '../api/generated/booking'
 
 type TypesState =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; types: MeetingType[] }
@@ -32,6 +39,9 @@ type SlotsState =
 
 // Ограничение длины имени гостя из контракта (MeetingCreateRequest.guestName).
 const GUEST_NAME_MAX_LENGTH = 100
+
+// Отказ «слот только что заняли» (спека #23, состояние 13).
+const SLOT_TAKEN_MESSAGE = 'Это время только что заняли. Выберите другое время.'
 
 async function fetchTypes(): Promise<TypesState> {
   try {
@@ -92,6 +102,22 @@ function formatMeetingTime(start: string, end: string, timeZone: string): string
   return `${date.charAt(0).toUpperCase()}${date.slice(1)}, ${formatTime(start, timeZone)}–${formatTime(end, timeZone)} (МСК)`
 }
 
+// Клиент orval не бросает исключений на HTTP-ошибках: статус в unions разрешает
+// только объявленные в контракте коды, но в рантайме там бывает что угодно
+// (5xx, пустое или неразобранное тело), поэтому тело ошибки проверяем до разбора.
+function isProblemDetails(value: unknown): value is ProblemDetails {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const problem = value as ProblemDetails
+  return (
+    typeof problem.type === 'string' &&
+    typeof problem.title === 'string' &&
+    typeof problem.status === 'number' &&
+    typeof problem.detail === 'string'
+  )
+}
+
 export function BookingPage() {
   const [typesState, setTypesState] = useState<TypesState>({ status: 'loading' })
   const [selectedType, setSelectedType] = useState<MeetingType | null>(null)
@@ -102,17 +128,22 @@ export function BookingPage() {
   const [guestName, setGuestName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [bookingFailed, setBookingFailed] = useState(false)
+  const [slotRejection, setSlotRejection] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<Meeting | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  async function loadSlots(type: MeetingType) {
+  async function loadSlots(type: MeetingType, keepDay = false) {
     setSlotsState({ status: 'loading' })
     setSelectedSlot(null)
 
     try {
       const response = await listSlots({ meetingTypeId: type.id })
       if (response.status === 200) {
-        const day = defaultDay(response.data.days)
+        // Перезапрос после отказа оставляет выбранный день, если он ещё в окне.
+        const day =
+          keepDay && selectedDay && response.data.days.some((d) => d.date === selectedDay)
+            ? selectedDay
+            : defaultDay(response.data.days)
         setSlotsState({ status: 'ready', response: response.data })
         setSelectedDay(day)
         setVisibleMonth(day)
@@ -163,6 +194,7 @@ export function BookingPage() {
     setSelectedSlot(null)
     setGuestName('')
     setBookingFailed(false)
+    setSlotRejection(null)
   }
 
   function selectDay(day: string | null) {
@@ -172,6 +204,12 @@ export function BookingPage() {
 
     setSelectedDay(day)
     setSelectedSlot(null)
+  }
+
+  // Новый выбор слота снимает плашку отказа: она относилась к прежнему слоту.
+  function selectSlot(slot: Slot) {
+    setSlotRejection(null)
+    setSelectedSlot(slot)
   }
 
   function refreshSlots() {
@@ -185,6 +223,7 @@ export function BookingPage() {
     setSelectedSlot(null)
     setGuestName('')
     setBookingFailed(false)
+    setSlotRejection(null)
   }
 
   // «Записаться ещё» возвращает экран в исходное состояние и перезапрашивает типы.
@@ -197,6 +236,7 @@ export function BookingPage() {
     setSelectedSlot(null)
     setGuestName('')
     setBookingFailed(false)
+    setSlotRejection(null)
     refreshTypes()
   }
 
@@ -207,6 +247,7 @@ export function BookingPage() {
 
     setSubmitting(true)
     setBookingFailed(false)
+    setSlotRejection(null)
 
     try {
       const response = await createMeeting({
@@ -220,7 +261,17 @@ export function BookingPage() {
         return
       }
 
-      // Полноценная обработка отказов брони — тикет #28; здесь только общая плашка.
+      // 409 slot-taken: плашка над слотами, перезапрос слотов, выбор снят,
+      // тип и имя сохранены, «Продолжить» недоступна до нового выбора (спека #15-13).
+      if (response.status === 409 && isProblemDetails(response.data)) {
+        if (response.data.type === 'slot-taken') {
+          setSlotRejection(SLOT_TAKEN_MESSAGE)
+          void loadSlots(selectedType, true)
+          return
+        }
+      }
+
+      // Прочие отказы — тикет #28; здесь только общая плашка.
       setBookingFailed(true)
     } catch {
       setBookingFailed(true)
@@ -394,6 +445,12 @@ export function BookingPage() {
               <Stack gap="md">
                 <Title order={2}>Слоты</Title>
 
+                {slotRejection && (
+                  <Alert color="red" withCloseButton={false}>
+                    {slotRejection}
+                  </Alert>
+                )}
+
                 {!selectedType && typesState.status === 'ready' && (
                   <Text c="dimmed">Выберите тип встречи</Text>
                 )}
@@ -439,7 +496,7 @@ export function BookingPage() {
                           disabled={!slot.available || submitting}
                           aria-pressed={selectedSlot?.start === slot.start}
                           aria-label={slot.available ? label : `${label} занято`}
-                          onClick={() => setSelectedSlot(slot)}
+                          onClick={() => selectSlot(slot)}
                           justify="space-between"
                           fullWidth
                         >
