@@ -133,6 +133,8 @@ export function BookingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [bookingFailed, setBookingFailed] = useState(false)
   const [slotRejection, setSlotRejection] = useState<string | null>(null)
+  // Серверная ошибка errors.guestName показывается под полем (спека #15-16).
+  const [guestNameError, setGuestNameError] = useState<string | undefined>(undefined)
   const [confirmation, setConfirmation] = useState<Meeting | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
@@ -253,6 +255,7 @@ export function BookingPage() {
     setSubmitting(true)
     setBookingFailed(false)
     setSlotRejection(null)
+    setGuestNameError(undefined)
 
     try {
       const response = await createMeeting({
@@ -282,6 +285,15 @@ export function BookingPage() {
           setSlotRejection(SLOT_NOT_BOOKABLE_MESSAGE)
           void loadSlots(selectedType, true)
           return
+        }
+
+        // 400 validation-failed: ошибки errors.guestName под полем, форма сохранена (спека #15-16).
+        if (response.data.type === 'validation-failed') {
+          const nameErrors = response.data.errors?.guestName
+          if (nameErrors && nameErrors.length > 0) {
+            setGuestNameError(nameErrors[0])
+            return
+          }
         }
       }
 
@@ -541,7 +553,12 @@ export function BookingPage() {
                       value={guestName}
                       maxLength={GUEST_NAME_MAX_LENGTH}
                       disabled={!selectedSlot || submitting}
-                      onChange={(event) => setGuestName(event.currentTarget.value)}
+                      error={guestNameError}
+                      // Правка имени снимает серверную ошибку по этому полю.
+                      onChange={(event) => {
+                        setGuestName(event.currentTarget.value)
+                        setGuestNameError(undefined)
+                      }}
                     />
 
                     {bookingFailed && (

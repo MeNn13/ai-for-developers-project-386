@@ -653,4 +653,31 @@ describe('booking page', () => {
       screen.queryByText('Этот тип встречи больше недоступен. Выберите другой.'),
     ).not.toBeInTheDocument()
   })
+
+  it('shows the server name error under the field and keeps the form on validation-failed', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting).mockResolvedValueOnce(
+      rejection(400, 'validation-failed', { guestName: ['Имя не может быть пустым.'] }),
+    )
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    // Ошибка errors.guestName показана под полем имени.
+    expect(await screen.findByText('Имя не может быть пустым.')).toBeVisible()
+    // Форма и значения сохранены: слот выбран, имя на месте, «Продолжить» доступна.
+    expect(screen.getByLabelText('Ваше имя')).toHaveValue('Анна')
+    expect(screen.getByRole('button', { name: '10:00–10:30' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Продолжить' })).toBeEnabled()
+    // Слоты не перезапрашиваются, слот-плашки нет.
+    expect(listSlots).toHaveBeenCalledTimes(1)
+    expect(
+      screen.queryByText('Это время только что заняли. Выберите другое время.'),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Не удалось забронировать встречу')).not.toBeInTheDocument()
+  })
 })
