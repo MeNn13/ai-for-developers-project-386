@@ -376,9 +376,26 @@ describe('booking page', () => {
 
     expect(await screen.findByText('В ближайшие 14 дней свободных слотов нет')).toBeVisible()
 
+    await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Обновить' }))
+
+    await waitFor(() => expect(listSlots).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows the slots freshness caption and refetches slots with the refresh button', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+
+    renderBookingPage()
+    await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+
+    // Подпись свежести видна постоянно, пока слоты загружены, время — по Москве.
+    expect(await screen.findByText(/^Обновлено в \d{2}:\d{2}$/)).toBeVisible()
+
     await user.click(screen.getByRole('button', { name: 'Обновить' }))
 
     await waitFor(() => expect(listSlots).toHaveBeenCalledTimes(2))
+    // Подпись остаётся после перезапроса.
+    expect(await screen.findByText(/^Обновлено в \d{2}:\d{2}$/)).toBeVisible()
   })
 
   it('returns to the type list through the change button', async () => {

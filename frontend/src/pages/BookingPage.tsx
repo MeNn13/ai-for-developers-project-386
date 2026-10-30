@@ -27,6 +27,7 @@ import type {
   SlotDay,
   SlotsResponse,
 } from '../api/generated/booking'
+import { formatTimeOfDay } from '../lib/moscowTime'
 
 type TypesState =
   { status: 'loading' } | { status: 'error' } | { status: 'ready'; types: MeetingType[] }
@@ -138,6 +139,8 @@ export function BookingPage() {
   // Серверная ошибка errors.guestName показывается под полем (спека #15-16).
   const [guestNameError, setGuestNameError] = useState<string | undefined>(undefined)
   const [confirmation, setConfirmation] = useState<Meeting | null>(null)
+  // Время последнего успешного перезапроса слотов: подпись «Обновлено в …» (US#36).
+  const [slotsUpdatedAt, setSlotsUpdatedAt] = useState<Date | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   async function loadSlots(type: MeetingType, keepDay = false) {
@@ -153,6 +156,8 @@ export function BookingPage() {
             ? selectedDay
             : defaultDay(response.data.days)
         setSlotsState({ status: 'ready', response: response.data })
+        // Отметка ставится при обновлении состояния, а не в теле рендера.
+        setSlotsUpdatedAt(() => new Date())
         setSelectedDay(day)
         setVisibleMonth(day)
         return
@@ -490,7 +495,24 @@ export function BookingPage() {
 
             <Paper withBorder p="md">
               <Stack gap="md">
-                <Title order={2}>Слоты</Title>
+                <Group justify="space-between" align="center" gap="sm" wrap="wrap">
+                  <Title order={2}>Слоты</Title>
+                  {slotsState.status === 'ready' && slotsUpdatedAt && (
+                    <Group gap="sm" align="center">
+                      <Text fz="sm" c="dimmed">
+                        Обновлено в {formatTimeOfDay(slotsUpdatedAt)}
+                      </Text>
+                      <Button
+                        variant="default"
+                        size="xs"
+                        disabled={submitting}
+                        onClick={refreshSlots}
+                      >
+                        Обновить
+                      </Button>
+                    </Group>
+                  )}
+                </Group>
 
                 {slotRejection && (
                   <Alert color="red" withCloseButton={false}>
