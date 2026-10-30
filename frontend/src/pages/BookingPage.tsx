@@ -44,6 +44,8 @@ const GUEST_NAME_MAX_LENGTH = 100
 const SLOT_TAKEN_MESSAGE = 'Это время только что заняли. Выберите другое время.'
 // Отказ «слот больше недоступен по правилам» — то же поведение, другой текст (спека #15-14).
 const SLOT_NOT_BOOKABLE_MESSAGE = 'Это время больше недоступно. Выберите другое.'
+// Отказ «тип встречи исчез» — плашка, сброс к выбору типа, перезапрос типов (спека #15-15).
+const TYPE_NOT_FOUND_MESSAGE = 'Этот тип встречи больше недоступен. Выберите другой.'
 
 async function fetchTypes(): Promise<TypesState> {
   try {
@@ -179,6 +181,7 @@ export function BookingPage() {
       return
     }
 
+    setSlotRejection(null)
     setSelectedType(type)
     setSelectedDay(null)
     void loadSlots(type)
@@ -278,6 +281,21 @@ export function BookingPage() {
         if (response.data.type === 'slot-not-bookable') {
           setSlotRejection(SLOT_NOT_BOOKABLE_MESSAGE)
           void loadSlots(selectedType, true)
+          return
+        }
+      }
+
+      // 404 meeting-type-not-found: плашка, сброс к выбору типа, перезапрос типов (спека #15-15).
+      if (response.status === 404 && isProblemDetails(response.data)) {
+        if (response.data.type === 'meeting-type-not-found') {
+          setSlotRejection(TYPE_NOT_FOUND_MESSAGE)
+          setSelectedType(null)
+          setSlotsState({ status: 'idle' })
+          setSelectedDay(null)
+          setVisibleMonth(null)
+          setSelectedSlot(null)
+          setGuestName('')
+          refreshTypes()
           return
         }
       }

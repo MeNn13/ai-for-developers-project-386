@@ -627,4 +627,30 @@ describe('booking page', () => {
     // Автоповтора брони нет.
     expect(createMeeting).toHaveBeenCalledTimes(1)
   })
+
+  it('resets to type selection and re-fetches types when the meeting type disappeared', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    vi.mocked(createMeeting).mockResolvedValueOnce(rejection(404, 'meeting-type-not-found'))
+
+    renderBookingPage()
+    await bookFreeSlotWithName(user, 'Анна')
+
+    expect(
+      await screen.findByText('Этот тип встречи больше недоступен. Выберите другой.'),
+    ).toBeVisible()
+
+    // Сброс к выбору типа: карточки типов видны, сводка выбранного типа — нет.
+    expect(await screen.findByRole('button', { name: /Разбор/ })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Изменить' })).not.toBeInTheDocument()
+    expect(screen.getByText('Выберите тип встречи')).toBeVisible()
+    // Перезапрос типов.
+    await waitFor(() => expect(listMeetingTypes).toHaveBeenCalledTimes(2))
+
+    // Выбор нового типа снимает плашку — отказ не висит вечно.
+    await user.click(screen.getByRole('button', { name: /Разбор/ }))
+    expect(
+      screen.queryByText('Этот тип встречи больше недоступен. Выберите другой.'),
+    ).not.toBeInTheDocument()
+  })
 })
