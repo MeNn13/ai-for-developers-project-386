@@ -376,9 +376,26 @@ describe('booking page', () => {
 
     expect(await screen.findByText('В ближайшие 14 дней свободных слотов нет')).toBeVisible()
 
+    await user.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Обновить' }))
+
+    await waitFor(() => expect(listSlots).toHaveBeenCalledTimes(2))
+  })
+
+  it('shows the slots freshness caption and refetches slots with the refresh button', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+
+    renderBookingPage()
+    await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+
+    // Подпись свежести видна постоянно, пока слоты загружены, время — по Москве.
+    expect(await screen.findByText(/^Обновлено в \d{2}:\d{2}$/)).toBeVisible()
+
     await user.click(screen.getByRole('button', { name: 'Обновить' }))
 
     await waitFor(() => expect(listSlots).toHaveBeenCalledTimes(2))
+    // Подпись остаётся после перезапроса.
+    expect(await screen.findByText(/^Обновлено в \d{2}:\d{2}$/)).toBeVisible()
   })
 
   it('returns to the type list through the change button', async () => {
@@ -735,5 +752,40 @@ describe('booking page', () => {
     )
     expect(createMeeting).toHaveBeenCalledTimes(1)
     expect(listSlots).toHaveBeenCalledTimes(1)
+  })
+
+  it('locks the form and blocks a second submit while the booking is in flight', async () => {
+    const user = userEvent.setup()
+    mockBookingData()
+    let resolveCreate: ((value: createMeetingResponse) => void) | undefined
+    vi.mocked(createMeeting).mockImplementation(
+      () =>
+        new Promise<createMeetingResponse>((resolve) => {
+          resolveCreate = resolve
+        }),
+    )
+
+    renderBookingPage()
+    await user.click(await screen.findByRole('button', { name: /Знакомство/ }))
+    await user.click(await screen.findByRole('button', { name: '10:00–10:30' }))
+    await user.type(screen.getByLabelText('Ваше имя'), 'Анна')
+
+    const continueButton = screen.getByRole('button', { name: 'Продолжить' })
+    await user.click(continueButton)
+    await user.click(continueButton)
+
+    // Пока запрос в полёте, «Продолжить» в loading, повторный клик не шлёт второй POST.
+    expect(continueButton).toHaveAttribute('data-loading', 'true')
+    expect(createMeeting).toHaveBeenCalledTimes(1)
+    // Элементы управления заблокированы.
+    expect(screen.getByLabelText('Ваше имя')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '10:00–10:30' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Назад' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Изменить' })).toBeDisabled()
+
+    resolveCreate?.({ data: bookedMeeting, status: 201, headers: new Headers() })
+
+    expect(await screen.findByRole('heading', { name: 'Встреча забронирована' })).toBeVisible()
+    expect(createMeeting).toHaveBeenCalledTimes(1)
   })
 })

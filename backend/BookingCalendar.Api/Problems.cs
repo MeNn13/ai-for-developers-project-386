@@ -30,7 +30,7 @@ internal static class Problems
         Create("meeting-type-exists", "Конфликт", StatusCodes.Status409Conflict, instance, "Тип встречи с таким id уже существует.");
 
     public static IResult SlotNotBookable(string instance) =>
-        Create("slot-not-bookable", "Слот недоступен", StatusCodes.Status400BadRequest, instance, "Это время не является слотом записи.");
+        Create("slot-not-bookable", "Слот недоступен", StatusCodes.Status400BadRequest, instance, "Это время не является слотом для бронирования.");
 
     public static IResult SlotTaken(string instance) =>
         Create("slot-taken", "Слот занят", StatusCodes.Status409Conflict, instance, "Это время уже занято другой встречей.");

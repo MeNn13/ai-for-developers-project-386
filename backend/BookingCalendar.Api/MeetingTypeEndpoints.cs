@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using BookingCalendar.Api.Contracts;
+using BookingCalendar.Api.Domain;
 using BookingCalendar.Api.Storage;
 
 namespace BookingCalendar.Api;
@@ -15,9 +16,6 @@ internal static class MeetingTypeEndpoints
     private const int TitleMinLength = 1;
     private const int TitleMaxLength = 120;
     private const int DescriptionMaxLength = 500;
-    private const int DurationMinMinutes = 15;
-    private const int DurationMaxMinutes = 480;
-    private const int DurationStepMinutes = 5;
 
     public static IEndpointRouteBuilder MapMeetingTypeEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -30,7 +28,7 @@ internal static class MeetingTypeEndpoints
     {
         var instance = request.Path.ToString();
 
-        using var document = await ParseBodyAsync(request);
+        using var document = await JsonRequest.ParseBodyAsync(request);
         if (document is null)
         {
             return Problems.ValidationFailed(instance, "Тело запроса не является корректным JSON.");
@@ -85,20 +83,6 @@ internal static class MeetingTypeEndpoints
         return Results.Json(created, statusCode: StatusCodes.Status201Created);
     }
 
-    private static async Task<JsonDocument?> ParseBodyAsync(HttpRequest request)
-    {
-        try
-        {
-            return await JsonDocument.ParseAsync(
-                request.Body,
-                cancellationToken: request.HttpContext.RequestAborted);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
     private static string? ReadString(
         JsonElement root,
         string name,
@@ -110,13 +94,13 @@ internal static class MeetingTypeEndpoints
     {
         if (!root.TryGetProperty(name, out var value))
         {
-            AddError(errors, name, $"Поле «{label}» обязательно.");
+            JsonRequest.AddError(errors, name, $"Поле «{label}» обязательно.");
             return null;
         }
 
         if (value.ValueKind != JsonValueKind.String)
         {
-            AddError(errors, name, $"Поле «{label}» должно быть строкой.");
+            JsonRequest.AddError(errors, name, $"Поле «{label}» должно быть строкой.");
             return null;
         }
 
@@ -126,13 +110,13 @@ internal static class MeetingTypeEndpoints
             var limit = minLength == 0
                 ? $"не больше {maxLength} символов"
                 : $"от {minLength} до {maxLength} символов";
-            AddError(errors, name, $"Длина поля «{label}» должна быть {limit}.");
+            JsonRequest.AddError(errors, name, $"Длина поля «{label}» должна быть {limit}.");
             return null;
         }
 
         if (requireIdPattern && !IsAllowedId(text))
         {
-            AddError(
+            JsonRequest.AddError(
                 errors,
                 name,
                 "Поле «Идентификатор» может содержать только строчные латинские буквы, цифры и дефис.");
@@ -149,46 +133,36 @@ internal static class MeetingTypeEndpoints
 
         if (!root.TryGetProperty(name, out var value))
         {
-            AddError(errors, name, $"Поле «{label}» обязательно.");
+            JsonRequest.AddError(errors, name, $"Поле «{label}» обязательно.");
             return null;
         }
 
         if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var duration))
         {
-            AddError(errors, name, $"Поле «{label}» должно быть целым числом минут.");
+            JsonRequest.AddError(errors, name, $"Поле «{label}» должно быть целым числом минут.");
             return null;
         }
 
-        if (duration < DurationMinMinutes || duration > DurationMaxMinutes)
+        if (duration < MeetingTypeConstraints.DurationMinMinutes
+            || duration > MeetingTypeConstraints.DurationMaxMinutes)
         {
-            AddError(
+            JsonRequest.AddError(
                 errors,
                 name,
-                $"Длительность должна быть от {DurationMinMinutes} до {DurationMaxMinutes} минут.");
+                $"Длительность должна быть от {MeetingTypeConstraints.DurationMinMinutes} до {MeetingTypeConstraints.DurationMaxMinutes} минут.");
             return null;
         }
 
-        if (duration % DurationStepMinutes != 0)
+        if (duration % MeetingTypeConstraints.DurationStepMinutes != 0)
         {
-            AddError(errors, name, $"Длительность должна быть кратна {DurationStepMinutes} минутам.");
+            JsonRequest.AddError(
+                errors,
+                name,
+                $"Длительность должна быть кратна {MeetingTypeConstraints.DurationStepMinutes} минутам.");
             return null;
         }
 
         return duration;
-    }
-
-    private static void AddError(
-        Dictionary<string, List<string>> errors,
-        string field,
-        string message)
-    {
-        if (!errors.TryGetValue(field, out var messages))
-        {
-            messages = [];
-            errors[field] = messages;
-        }
-
-        messages.Add(message);
     }
 
     // Совпадает с шаблоном контракта ^[a-z0-9-]+$: ведущие и хвостовые дефисы допустимы.

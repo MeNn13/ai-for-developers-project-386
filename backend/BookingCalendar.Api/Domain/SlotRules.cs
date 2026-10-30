@@ -12,9 +12,6 @@ public static class SlotRules
     public const int GridStartsPerDay = 16;
     public const int GridStartHour = 10;
     public const int WorkdayEndHour = 18;
-    public const int MinDurationMinutes = 15;
-    public const int MaxDurationMinutes = 480;
-    public const int DurationStepMinutes = 5;
 
     public static TimeZoneInfo TimeZone { get; } = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
 
@@ -28,9 +25,9 @@ public static class SlotRules
 
     // Ограничения контракта: 15–480 минут, кратность 5.
     public static bool IsDurationAllowed(int durationMinutes) =>
-        durationMinutes >= MinDurationMinutes
-        && durationMinutes <= MaxDurationMinutes
-        && durationMinutes % DurationStepMinutes == 0;
+        durationMinutes >= MeetingTypeConstraints.DurationMinMinutes
+        && durationMinutes <= MeetingTypeConstraints.DurationMaxMinutes
+        && durationMinutes % MeetingTypeConstraints.DurationStepMinutes == 0;
 
     // Сетка стартов: 10:00 + 30 минут × k, k = 0…15, независимо от длительности.
     public static IReadOnlyList<DateTimeOffset> DayStarts(DateOnly date)

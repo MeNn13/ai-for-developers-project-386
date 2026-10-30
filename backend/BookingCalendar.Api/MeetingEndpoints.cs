@@ -27,7 +27,7 @@ internal static class MeetingEndpoints
     {
         var instance = request.Path.ToString();
 
-        using var document = await ParseBodyAsync(request);
+        using var document = await JsonRequest.ParseBodyAsync(request);
         if (document is null)
         {
             return Problems.ValidationFailed(instance, "Тело запроса не является корректным JSON.");
@@ -74,20 +74,6 @@ internal static class MeetingEndpoints
         };
     }
 
-    private static async Task<JsonDocument?> ParseBodyAsync(HttpRequest request)
-    {
-        try
-        {
-            return await JsonDocument.ParseAsync(
-                request.Body,
-                cancellationToken: request.HttpContext.RequestAborted);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
     private static string? ReadString(
         JsonElement root,
         string name,
@@ -98,14 +84,14 @@ internal static class MeetingEndpoints
     {
         if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
         {
-            AddError(errors, name, $"Поле «{label}» обязательно и должно быть строкой.");
+            JsonRequest.AddError(errors, name, $"Поле «{label}» обязательно и должно быть строкой.");
             return null;
         }
 
         var text = value.GetString()!;
         if (text.Length < minLength || text.Length > maxLength)
         {
-            AddError(errors, name, $"Длина поля «{label}» должна быть от {minLength} до {maxLength} символов.");
+            JsonRequest.AddError(errors, name, $"Длина поля «{label}» должна быть от {minLength} до {maxLength} символов.");
             return null;
         }
 
@@ -120,7 +106,7 @@ internal static class MeetingEndpoints
 
         if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
         {
-            AddError(errors, name, $"Поле «{label}» обязательно и должно быть строкой.");
+            JsonRequest.AddError(errors, name, $"Поле «{label}» обязательно и должно быть строкой.");
             return null;
         }
 
@@ -128,7 +114,7 @@ internal static class MeetingEndpoints
         if (!HasOffset(text)
             || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
         {
-            AddError(errors, name, $"Поле «{label}» должно быть в формате ISO 8601 со смещением.");
+            JsonRequest.AddError(errors, name, $"Поле «{label}» должно быть в формате ISO 8601 со смещением.");
             return null;
         }
 
@@ -140,18 +126,4 @@ internal static class MeetingEndpoints
         value.EndsWith('Z')
         || (value.Length >= 6 && value[^6] is '+' or '-' && value[^3] == ':')
         || (value.Length >= 5 && value[^5] is '+' or '-');
-
-    private static void AddError(
-        Dictionary<string, List<string>> errors,
-        string field,
-        string message)
-    {
-        if (!errors.TryGetValue(field, out var messages))
-        {
-            messages = [];
-            errors[field] = messages;
-        }
-
-        messages.Add(message);
-    }
 }

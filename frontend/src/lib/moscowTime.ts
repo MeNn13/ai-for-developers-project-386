@@ -28,3 +28,17 @@ export function formatMeetingWhen(start: string, end: string, timeZone = MOSCOW_
 export function formatTimeOfDay(value: Date, timeZone = MOSCOW_TIME_ZONE): string {
   return formatTime(value, timeZone)
 }
+
+// «10:00–10:30» — подпись слота в списке выбранного дня.
+export function formatTimeRange(start: string, end: string, timeZone = MOSCOW_TIME_ZONE): string {
+  return `${formatTime(start, timeZone)}–${formatTime(end, timeZone)}`
+}
+
+// «Пн, 2 ноября, 10:00–10:30 (МСК)» — подтверждение бронирования.
+export function formatMeetingConfirmation(
+  start: string,
+  end: string,
+  timeZone = MOSCOW_TIME_ZONE,
+): string {
+  return `${formatMeetingWhen(start, end, timeZone)} (МСК)`
+}
