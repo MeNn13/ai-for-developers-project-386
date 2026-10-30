@@ -6,6 +6,7 @@ info:
 tags:
   - name: health
   - name: meeting-types
+  - name: slots
 paths:
   /api/health:
     get:
@@ -91,6 +92,59 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/MeetingTypeCreateRequest'
+  /api/slots:
+    get:
+      operationId: listSlots
+      description: Возвращает снимок слотов выбранного типа встречи на 14 дней вперёд.
+      parameters:
+        - name: meetingTypeId
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotsResponse'
+        '400':
+          description: Поля запроса не прошли проверку.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                example0:
+                  description: Запрос без обязательного параметра meetingTypeId.
+                  value:
+                    type: validation-failed
+                    title: Запрос некорректен
+                    status: 400
+                    detail: Параметр meetingTypeId обязателен.
+                    instance: /api/slots
+                    errors:
+                      meetingTypeId:
+                        - Параметр «meetingTypeId» обязателен
+        '404':
+          description: Тип встречи с таким id не найден.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                example0:
+                  description: Неизвестный meetingTypeId.
+                  value:
+                    type: meeting-type-not-found
+                    title: Не найдено
+                    status: 404
+                    detail: Тип встречи с таким id не найден.
+                    instance: /api/slots
+      tags:
+        - slots
 components:
   schemas:
     HealthResponse:
@@ -224,6 +278,105 @@ components:
         status: 404
         detail: Запрошенный маршрут API не существует.
         instance: /api/meeting-types
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+        - available
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Начало слота по московскому времени.
+        end:
+          type: string
+          format: date-time
+          description: 'Конец слота: начало плюс длительность типа встречи.'
+        available:
+          type: boolean
+          description: 'Свободен ли слот: true — можно бронировать, false — пересекается со встречей.'
+      description: 'Слот: интервал, который начинается в точке сетки стартов и длится столько же, сколько выбранный тип встречи.'
+      example:
+        start: '2026-11-02T10:00:00+03:00'
+        end: '2026-11-02T10:30:00+03:00'
+        available: true
+    SlotDay:
+      type: object
+      required:
+        - date
+        - slots
+      properties:
+        date:
+          type: string
+          format: date
+          description: Дата дня в формате YYYY-MM-DD.
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+          description: Слоты дня по возрастанию начала.
+      description: День окна записи со слотами выбранного типа; у выходного дня и дня без кандидатов массив пуст.
+      example:
+        date: '2026-11-02'
+        slots:
+          - start: '2026-11-02T10:00:00+03:00'
+            end: '2026-11-02T10:30:00+03:00'
+            available: true
+    SlotWindow:
+      type: object
+      required:
+        - from
+        - to
+      properties:
+        from:
+          type: string
+          format: date
+          description: Первый день окна — сегодня по московскому времени.
+        to:
+          type: string
+          format: date
+          description: Последний день окна — сегодня плюс 13 дней.
+      description: Границы окна записи.
+      example:
+        from: '2026-11-02'
+        to: '2026-11-15'
+    SlotsResponse:
+      type: object
+      required:
+        - timezone
+        - window
+        - days
+      properties:
+        timezone:
+          type: string
+          description: Часовой пояс, в котором отданы даты и время.
+        window:
+          allOf:
+            - $ref: '#/components/schemas/SlotWindow'
+          description: Границы окна записи.
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlotDay'
+          description: Ровно 14 дней по возрастанию даты, включая выходные и дни без кандидатов.
+      description: Снимок слотов на 14 дней вперёд для выбранного типа встречи.
+      example:
+        timezone: Europe/Moscow
+        window:
+          from: '2026-11-02'
+          to: '2026-11-15'
+        days:
+          - date: '2026-11-02'
+            slots:
+              - start: '2026-11-02T10:00:00+03:00'
+                end: '2026-11-02T10:30:00+03:00'
+                available: true
+              - start: '2026-11-02T10:30:00+03:00'
+                end: '2026-11-02T11:00:00+03:00'
+                available: false
+          - date: '2026-11-03'
+            slots: []
 servers:
   - url: http://127.0.0.1:5000
     description: Локальная разработка
