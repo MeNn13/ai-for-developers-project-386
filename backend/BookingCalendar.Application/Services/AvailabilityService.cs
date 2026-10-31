@@ -27,7 +27,7 @@ internal sealed class AvailabilityService(CalendarState state, TimeProvider time
             var date = from.AddDays(offset);
             var slots = SlotRules.DayStarts(date)
                 .Where(start => SlotRules.IsBookable(start, duration, now))
-                .Select(start => new AvailableSlot(start, start.AddMinutes(duration),
+                .Select(start => new AvailabilitySlot(start, start.AddMinutes(duration),
                     SlotRules.IsAvailable(start, start.AddMinutes(duration), occupied)))
                 .ToArray();
             days.Add(new(date, slots));

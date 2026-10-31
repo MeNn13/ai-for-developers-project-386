@@ -6,5 +6,5 @@ public interface IAvailabilityService
 }
 
 public sealed record Availability(string Timezone, DateOnly From, DateOnly To, IReadOnlyList<AvailabilityDay> Days);
-public sealed record AvailabilityDay(DateOnly Date, IReadOnlyList<AvailableSlot> Slots);
-public sealed record AvailableSlot(DateTimeOffset Start, DateTimeOffset End, bool Available);
+public sealed record AvailabilityDay(DateOnly Date, IReadOnlyList<AvailabilitySlot> Slots);
+public sealed record AvailabilitySlot(DateTimeOffset Start, DateTimeOffset End, bool Available);
