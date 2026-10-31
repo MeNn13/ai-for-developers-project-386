@@ -36,7 +36,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 
 WORKDIR /app
 
-ENV ASPNETCORE_URLS=http://+:8080
+ENV PORT=8080
 EXPOSE 8080
 
 COPY --from=api /out ./
@@ -48,4 +48,5 @@ COPY --from=web /src/frontend/dist ./wwwroot
 # hadolint ignore=DL3066
 USER $APP_UID
 
-ENTRYPOINT ["dotnet", "BookingCalendar.Api.dll"]
+# Expand the hosting platform's PORT at startup and forward signals to dotnet.
+ENTRYPOINT ["sh", "-c", "exec dotnet BookingCalendar.Api.dll --urls \"http://0.0.0.0:${PORT}\""]

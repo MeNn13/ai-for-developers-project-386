@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process'
 const image = 'booking-calendar:ci'
 const container = 'booking-calendar-ci'
 const port = process.env.IMAGE_CHECK_PORT ?? '18080'
+const containerPort = '19090'
 const base = `http://127.0.0.1:${port}`
 const timeoutMs = 60_000
 
@@ -57,7 +58,17 @@ async function main() {
 
   removeContainer()
   console.log(`running ${container} on port ${port}`)
-  step('docker', ['run', '--detach', '--name', container, '--publish', `${port}:8080`, image])
+  step('docker', [
+    'run',
+    '--detach',
+    '--name',
+    container,
+    '--env',
+    `PORT=${containerPort}`,
+    '--publish',
+    `${port}:${containerPort}`,
+    image,
+  ])
 
   const health = await waitFor(`${base}/api/health`)
   const payload = await health.json()
@@ -70,6 +81,7 @@ async function main() {
   // /book check is what keeps the client-side routes working in the container.
   await assertIndexPage('/', 'frontend is served from the same container')
   await assertIndexPage('/book', 'deep links reach the frontend')
+  await assertIndexPage('/owner', 'owner deep link reaches the frontend')
 }
 
 try {
