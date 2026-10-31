@@ -114,6 +114,9 @@ docs: describe local setup
 
 ## Agent skills
 
+При работе в Windows, ошибках PATH/кодировки или публикации рабочей ветки
+читать `docs/agents/windows.md`.
+
 ### Issue tracker
 
 Задачи и спецификации живут в GitHub Issues репозитория
