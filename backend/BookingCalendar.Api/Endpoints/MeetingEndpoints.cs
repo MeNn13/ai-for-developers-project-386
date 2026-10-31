@@ -1,30 +1,30 @@
 using System.Globalization;
 using System.Text.Json;
 
-using BookingCalendar.Api.Domain;
 using BookingCalendar.Api.Http;
-using BookingCalendar.Api.Storage;
+using BookingCalendar.Application.Abstractions;
+using BookingCalendar.Domain.Aggregates;
+using BookingCalendar.Domain.Rules;
+using BookingCalendar.Domain.ValueObjects;
 
 namespace BookingCalendar.Api.Endpoints;
 
 // Эндпоинты встреч: создание с повторной проверкой правил слота и чтение
-// предстоящих встреч. Проверка и вставка — в CalendarStore под единым lock
+// предстоящих встреч. Проверка и вставка — в BookingService под единым lock
 // (ADR 0001); снаружи остаются только разбор запроса и сборка ответа.
 internal static class MeetingEndpoints
 {
     private const int MeetingTypeIdMinLength = 1;
     private const int MeetingTypeIdMaxLength = 64;
-    private const int GuestNameMinLength = 1;
-    private const int GuestNameMaxLength = 100;
 
     public static IEndpointRouteBuilder MapMeetingEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/meetings", CreateMeetingAsync);
-        endpoints.MapGet("/api/meetings", (CalendarStore store) => store.ListUpcomingMeetings());
+        endpoints.MapGet("/api/meetings", (IMeetingService service) => service.ListUpcoming().Select(ToContract));
         return endpoints;
     }
 
-    private static async Task<IResult> CreateMeetingAsync(HttpRequest request, CalendarStore store)
+    private static async Task<IResult> CreateMeetingAsync(HttpRequest request, IBookingService service)
     {
         var instance = request.Path.ToString();
 
@@ -52,9 +52,14 @@ internal static class MeetingEndpoints
             document.RootElement,
             "guestName",
             "Ваше имя",
-            GuestNameMinLength,
-            GuestNameMaxLength,
+            0,
+            int.MaxValue,
             errors);
+
+        if (guestName is not null && GuestName.TryCreate(guestName, out var guestError) is null)
+        {
+            JsonRequest.AddError(errors, "guestName", guestError!);
+        }
 
         if (errors.Count > 0)
         {
@@ -64,16 +69,21 @@ internal static class MeetingEndpoints
                 errors.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray(), StringComparer.Ordinal));
         }
 
-        var result = store.TryBook(meetingTypeId!, start!.Value, guestName!);
+        var result = service.Book(meetingTypeId!, start!.Value, guestName!);
         return result.Outcome switch
         {
-            BookingOutcome.Created => Results.Json(result.Meeting, statusCode: StatusCodes.Status201Created),
+            BookingOutcome.Created => Results.Json(ToContract(result.Meeting!), statusCode: StatusCodes.Status201Created),
+            BookingOutcome.InvalidGuestName => Problems.ValidationFailed(instance, "Invalid guest name."),
             BookingOutcome.MeetingTypeNotFound => Problems.MeetingTypeNotFound(instance),
             BookingOutcome.SlotNotBookable => Problems.SlotNotBookable(instance),
             BookingOutcome.SlotTaken => Problems.SlotTaken(instance),
             _ => throw new InvalidOperationException($"Неизвестный исход бронирования: {result.Outcome}."),
         };
     }
+
+    private static Contracts.Meeting ToContract(BookingCalendar.Domain.Entities.Meeting meeting) =>
+        new(meeting.Id, meeting.MeetingTypeId, meeting.MeetingTypeTitle, meeting.DurationMinutes,
+            meeting.Start, meeting.End, meeting.GuestName);
 
     private static string? ReadString(
         JsonElement root,

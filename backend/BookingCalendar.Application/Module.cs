@@ -16,6 +16,8 @@ public static class Module
     {
         services.AddSingleton<CalendarState>();
         services.AddScoped<IMeetingTypeService, MeetingTypeService>();
+        services.AddScoped<IBookingService, BookingService>();
+        services.AddScoped<IMeetingService, MeetingService>();
         services.TryAddSingleton(TimeProvider.System);
         return services;
     }

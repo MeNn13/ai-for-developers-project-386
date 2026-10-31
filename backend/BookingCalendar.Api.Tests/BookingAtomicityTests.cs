@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
-using BookingCalendar.Api.Domain;
+using BookingCalendar.Domain.Rules;
 
 using Microsoft.AspNetCore.Http;
 
