@@ -1,13 +1,11 @@
 using BookingCalendar.Api.Contracts;
 using BookingCalendar.Api.Endpoints;
 using BookingCalendar.Api.Http;
-using BookingCalendar.Api.Storage;
 using BookingCalendar.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddSingleton<CalendarStore>();
 builder.Services.AddBookingCalendarApplication();
 
 var app = builder.Build();

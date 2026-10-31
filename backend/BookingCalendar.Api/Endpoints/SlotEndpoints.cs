@@ -1,7 +1,6 @@
-using BookingCalendar.Api.Domain;
+using BookingCalendar.Api.Contracts;
 using BookingCalendar.Api.Http;
-using BookingCalendar.Api.Storage;
-using BookingCalendar.Domain.Rules;
+using BookingCalendar.Application.Abstractions;
 
 namespace BookingCalendar.Api.Endpoints;
 
@@ -18,7 +17,7 @@ internal static class SlotEndpoints
 
     private static IResult ListSlots(
         string? meetingTypeId,
-        CalendarStore store,
+        IAvailabilityService service,
         HttpRequest request)
     {
         var instance = request.Path.ToString();
@@ -35,16 +34,17 @@ internal static class SlotEndpoints
         }
 
         // ADR 0001: тип встречи, now и занятость читаются одним снимком под lock.
-        var snapshot = store.ReadSlotSnapshot(meetingTypeId);
-        if (snapshot is null)
+        var availability = service.List(meetingTypeId);
+        if (availability is null)
         {
             return Problems.MeetingTypeNotFound(instance);
         }
 
-        var response = SlotResponseBuilder.BuildResponse(
-            snapshot.Value.DurationMinutes,
-            snapshot.Value.Now,
-            snapshot.Value.Occupied);
+        var response = new SlotsResponse(
+            availability.Timezone,
+            new SlotWindow(availability.From, availability.To),
+            availability.Days.Select(day => new SlotDay(day.Date,
+                day.Slots.Select(slot => new Slot(slot.Start, slot.End, slot.Available)).ToArray())).ToArray());
         return Results.Json(response);
     }
 }

@@ -165,10 +165,19 @@ Dependabot.
 ## Структура
 
 ```text
-backend/    ASP.NET Core API и xUnit-тесты
+backend/    API, Application, Domain и xUnit-тесты
 contract/   TypeSpec, OpenAPI и конфигурация Orval
 frontend/   React, Vite, Mantine и сгенерированный клиент
 ```
+
+Бэкенд разделён на три проекта: `BookingCalendar.Api` содержит `Endpoints`,
+транспортные `Contracts` и обработку `Http`; `BookingCalendar.Application` —
+интерфейсы `Abstractions`, сценарии `Services`, общее состояние `State` и модуль
+регистрации зависимостей; `BookingCalendar.Domain` — `Aggregates`, `Entities`,
+`ValueObjects` и чистые `Rules`. Application зависит от Domain, API подключает
+Application через `AddBookingCalendarApplication`. Все четыре сервиса scoped
+используют единое singleton-состояние с общей блокировкой. Слоты вычисляются
+из согласованного снимка типа встречи, времени и занятости.
 
 Данные хранятся в памяти процесса: после перезапуска API типы встреч и записи сбрасываются.
 
