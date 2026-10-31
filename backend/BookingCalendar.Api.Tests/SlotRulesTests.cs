@@ -1,4 +1,4 @@
-using BookingCalendar.Api.Domain;
+using BookingCalendar.Domain.Rules;
 
 namespace BookingCalendar.Api.Tests;
 
@@ -124,13 +124,13 @@ public class SlotRulesTests
             new OccupiedInterval(At(0, 10, 30), At(0, 11, 0)),
         };
 
-        var result = SlotRules.BuildDay(day, durationMinutes: 30, s_now, meetings);
+        var result = SlotRules.DayStarts(day).Select(start => SlotRules.IsAvailable(start, start.AddMinutes(30), meetings)).ToArray();
 
-        Assert.Equal(16, result.Slots.Count);
-        Assert.True(result.Slots[0].Available);
-        Assert.False(result.Slots[1].Available);
-        Assert.True(result.Slots[2].Available);
-        Assert.All(result.Slots.Skip(2), slot => Assert.True(slot.Available));
+        Assert.Equal(16, result.Length);
+        Assert.True(result[0]);
+        Assert.False(result[1]);
+        Assert.True(result[2]);
+        Assert.All(result.Skip(2), available => Assert.True(available));
     }
 
     private static DateTimeOffset At(int dayOffset, int hour, int minute) =>

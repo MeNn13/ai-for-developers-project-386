@@ -1,6 +1,7 @@
 using BookingCalendar.Api.Domain;
 using BookingCalendar.Api.Http;
 using BookingCalendar.Api.Storage;
+using BookingCalendar.Domain.Rules;
 
 namespace BookingCalendar.Api.Endpoints;
 
@@ -40,7 +41,7 @@ internal static class SlotEndpoints
             return Problems.MeetingTypeNotFound(instance);
         }
 
-        var response = SlotRules.BuildResponse(
+        var response = SlotResponseBuilder.BuildResponse(
             snapshot.Value.DurationMinutes,
             snapshot.Value.Now,
             snapshot.Value.Occupied);
