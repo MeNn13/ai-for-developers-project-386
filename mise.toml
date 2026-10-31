@@ -131,6 +131,9 @@ run = "dotnet build backend/BookingCalendar.sln -c Release --no-restore --nologo
 [tasks."build:web"]
 run = "npm run build --workspace frontend"
 
+[tasks."publish:api"]
+run = "dotnet publish backend/BookingCalendar.Api/BookingCalendar.Api.csproj --configuration Release --no-restore --output artifacts/publish/api"
+
 [tasks.dev]
 daemons = ["api", "web"]
 run = "echo API: http://127.0.0.1:5000/api/health - Web: http://127.0.0.1:5173"
