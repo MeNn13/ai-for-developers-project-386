@@ -15,6 +15,15 @@
         "type": "Transitive",
         "resolved": "2.12.2",
         "contentHash": "ZkT7qiJe0Kj0+DTZOZo+xrDy1kNmdsWFQVPIQLNx9ZJ0T9cB2LG7r+Bi60so8/+yg1nkS7QCPadrzsTG4VPKrA=="
+      },
+      "bookingcalendar.application": {
+        "type": "Project",
+        "dependencies": {
+          "BookingCalendar.Domain": "[1.0.0, )"
+        }
+      },
+      "bookingcalendar.domain": {
+        "type": "Project"
       }
     }
   }

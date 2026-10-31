@@ -1,7 +1,8 @@
 using BookingCalendar.Api.Domain;
+using BookingCalendar.Api.Http;
 using BookingCalendar.Api.Storage;
 
-namespace BookingCalendar.Api;
+namespace BookingCalendar.Api.Endpoints;
 
 // Слоты выбранного типа встречи на всё окно записи: один снимок на запрос.
 // Тип, now и занятость приходят из хранилища одним чтением под lock (ADR 0001),

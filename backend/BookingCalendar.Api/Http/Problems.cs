@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 using BookingCalendar.Api.Contracts;
 
-namespace BookingCalendar.Api;
+namespace BookingCalendar.Api.Http;
 
 // Все ошибки API отдаются как application/problem+json по схеме ProblemDetails
 // из контракта: type — короткий slug, title и detail — русский текст для человека.

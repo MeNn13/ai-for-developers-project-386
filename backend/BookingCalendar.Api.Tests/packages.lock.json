@@ -448,8 +448,19 @@
       "bookingcalendar.api": {
         "type": "Project",
         "dependencies": {
+          "BookingCalendar.Application": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.14, )"
         }
+      },
+      "bookingcalendar.application": {
+        "type": "Project",
+        "dependencies": {
+          "BookingCalendar.Domain": "[1.0.0, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )"
+        }
+      },
+      "bookingcalendar.domain": {
+        "type": "Project"
       }
     }
   }

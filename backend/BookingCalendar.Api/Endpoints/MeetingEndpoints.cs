@@ -2,9 +2,10 @@ using System.Globalization;
 using System.Text.Json;
 
 using BookingCalendar.Api.Domain;
+using BookingCalendar.Api.Http;
 using BookingCalendar.Api.Storage;
 
-namespace BookingCalendar.Api;
+namespace BookingCalendar.Api.Endpoints;
 
 // Эндпоинты встреч: создание с повторной проверкой правил слота и чтение
 // предстоящих встреч. Проверка и вставка — в CalendarStore под единым lock

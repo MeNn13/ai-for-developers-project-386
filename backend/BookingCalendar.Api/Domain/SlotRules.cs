@@ -1,4 +1,5 @@
 using BookingCalendar.Api.Contracts;
+using BookingCalendar.Domain.ValueObjects;
 
 namespace BookingCalendar.Api.Domain;
 
@@ -25,9 +26,7 @@ public static class SlotRules
 
     // Ограничения контракта: 15–480 минут, кратность 5.
     public static bool IsDurationAllowed(int durationMinutes) =>
-        durationMinutes >= MeetingTypeConstraints.DurationMinMinutes
-        && durationMinutes <= MeetingTypeConstraints.DurationMaxMinutes
-        && durationMinutes % MeetingTypeConstraints.DurationStepMinutes == 0;
+        MeetingDuration.TryCreate(durationMinutes, out _) is not null;
 
     // Сетка стартов: 10:00 + 30 минут × k, k = 0…15, независимо от длительности.
     public static IReadOnlyList<DateTimeOffset> DayStarts(DateOnly date)

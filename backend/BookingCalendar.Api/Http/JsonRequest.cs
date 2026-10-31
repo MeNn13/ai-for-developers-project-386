@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace BookingCalendar.Api;
+namespace BookingCalendar.Api.Http;
 
 // Общие шаги разбора JSON-тела для эндпоинтов встреч и типов встреч: чтение
 // документа и накопление ошибок по полям. Вызываются вне критической секции
