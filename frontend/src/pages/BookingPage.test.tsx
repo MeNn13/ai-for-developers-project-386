@@ -192,7 +192,9 @@ describe('booking page', () => {
     expect(screen.getByRole('button', { name: 'Изменить' })).toBeVisible()
     expect(screen.getByRole('button', { name: '10:00–10:30' })).toBeVisible()
     expect(screen.getByRole('button', { name: '10:30–11:00 занято' })).toBeVisible()
-  })
+    // Первый тяжёлый тест файла: рендер Mantine-календаря не укладывался в
+    // дефолтные 5 секунд на загруженном раннере CI.
+  }, 15_000)
 
   it('disables taken slots, marks them busy and highlights the chosen slot', async () => {
     const user = userEvent.setup()
