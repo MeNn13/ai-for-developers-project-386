@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/MeNn13/ai-for-developers-project-386/compare/v0.2.0...v0.2.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **ci:** exclude bot-owned changelog from linters ([0b54efc](https://github.com/MeNn13/ai-for-developers-project-386/commit/0b54efcb3bbd210d45a016a81f05217606a7c5e2))
+
 ## [0.2.0](https://github.com/MeNn13/ai-for-developers-project-386/compare/v0.1.0...v0.2.0) (2026-10-30)
 
 ### Features
