@@ -5,6 +5,5 @@
   <ItemGroup>
     <ProjectReference Include="../BookingCalendar.Domain/BookingCalendar.Domain.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
-    <InternalsVisibleTo Include="BookingCalendar.Api" />
   </ItemGroup>
 </Project>

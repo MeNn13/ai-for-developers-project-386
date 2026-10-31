@@ -2,7 +2,6 @@ using BookingCalendar.Domain.Aggregates;
 
 namespace BookingCalendar.Application.State;
 
-// Shared with the temporary API CalendarStore until availability migrates.
 internal sealed class CalendarState
 {
     internal Calendar Calendar { get; } = new();

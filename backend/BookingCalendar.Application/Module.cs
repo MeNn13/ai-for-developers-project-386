@@ -18,6 +18,7 @@ public static class Module
         services.AddScoped<IMeetingTypeService, MeetingTypeService>();
         services.AddScoped<IBookingService, BookingService>();
         services.AddScoped<IMeetingService, MeetingService>();
+        services.AddScoped<IAvailabilityService, AvailabilityService>();
         services.TryAddSingleton(TimeProvider.System);
         return services;
     }
