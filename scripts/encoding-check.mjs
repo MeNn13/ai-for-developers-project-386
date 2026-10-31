@@ -56,14 +56,31 @@ const latin1Lead = new RegExp(
   'u',
 )
 
-const files = execFileSync('git', ['ls-files'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-  .split('\n')
+const files = execFileSync(
+  'git',
+  ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+  {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  },
+)
+  .split('\0')
   .filter((file) => SCAN_EXTENSIONS.values().some((ext) => file.endsWith(ext)))
 
 let hits = 0
+let scanned = 0
 
 for (const file of files) {
-  const lines = readFileSync(file, 'utf8').split('\n')
+  let content
+  try {
+    content = readFileSync(file, 'utf8')
+  } catch (error) {
+    // Git still lists working-tree deletions until they are staged.
+    if (error.code === 'ENOENT') continue
+    throw error
+  }
+  scanned += 1
+  const lines = content.split('\n')
 
   lines.forEach((line, index) => {
     if (cyrillicPair.test(line) || latin1Lead.test(line)) {
@@ -81,4 +98,4 @@ if (hits > 0) {
   process.exit(1)
 }
 
-console.log(`encoding-check: clean (${files.length} files scanned)`)
+console.log(`encoding-check: clean (${scanned} files scanned)`)

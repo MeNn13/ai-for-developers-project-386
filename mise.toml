@@ -67,6 +67,9 @@ run = "hadolint Dockerfile"
 [tasks."lint:encoding"]
 run = "node scripts/encoding-check.mjs"
 
+[tasks."test:scripts"]
+run = "node --test scripts/*.test.mjs"
+
 [tasks.knip]
 run = "npm run knip"
 
@@ -87,7 +90,7 @@ run = [
 ]
 
 [tasks."audit:vulnerabilities"]
-run = "osv-scanner scan source -L package-lock.json -L backend/BookingCalendar.Api/packages.lock.json -L backend/BookingCalendar.Api.Tests/packages.lock.json"
+run = "osv-scanner scan source --recursive ."
 
 [tasks."audit:secrets"]
 run = "betterleaks git --no-banner --redact"
@@ -112,6 +115,7 @@ run = [
   { task = "lint" },
   { task = "secrets" },
   { task = "typecheck" },
+  { task = "test:scripts" },
   { task = "test" },
   { task = "test:web" },
   { task = "build" },

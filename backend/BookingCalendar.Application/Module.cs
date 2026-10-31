@@ -7,7 +7,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace BookingCalendar.Application;
 
-public static class ApplicationModule
+// Соглашение проекта: модули называются Module и различаются namespace и методами.
+// Исключение согласовано владельцем; пересмотр: 2027-04-30.
+#pragma warning disable CA1716
+public static class Module
 {
     public static IServiceCollection AddBookingCalendarApplication(this IServiceCollection services)
     {
@@ -17,3 +20,4 @@ public static class ApplicationModule
         return services;
     }
 }
+#pragma warning restore CA1716
