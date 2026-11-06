@@ -275,6 +275,34 @@ Render Free засыпает после 15 минут без входящих з
 
 ## Структура
 
+### Браузерная проверка
+
+После `mise run install` установить Chromium:
+
+```sh
+mise exec -- npx playwright install chromium
+# Ubuntu: установить также системные зависимости
+mise exec -- npx playwright install --with-deps chromium
+mise run test:e2e
+```
+
+Команда собирает React и API и запускает отдельный сервер на `127.0.0.1:5187`
+со свежими данными в памяти. Порт должен быть свободен; существующие dev-серверы
+не переиспользуются. Playwright ожидает готовности и завершает сервер после
+успеха или ошибки. Render и Docker не нужны. Типы встреч и бронирование создаются
+через публичные страницы браузера без моков и тестовых HTTP-интерфейсов.
+День выбирается в актуальном окне записи, без фиксированной календарной даты.
+
+Проверка включена в `mise run check` после сборки. При ошибке JSON-отчёт,
+trace, снимок экрана и видео находятся в игнорируемой папке `artifacts/e2e/`;
+CI сохраняет её как `browser-diagnostics` на 7 дней. Открыть trace:
+`mise exec -- npx playwright show-trace <путь-к-trace.zip>`.
+Существующие unit-, HTTP-, conformance-, Vitest-проверки и смоук Docker сохраняются.
+Пересмотр стратегии [#21](https://github.com/MeNn13/ai-for-developers-project-386/issues/21)
+согласно критерию приёмки
+[#49](https://github.com/MeNn13/ai-for-developers-project-386/issues/49)
+зафиксирован в [#50](https://github.com/MeNn13/ai-for-developers-project-386/issues/50).
+
 ```text
 backend/    API, Application, Domain и xUnit-тесты
 contract/   TypeSpec, OpenAPI и конфигурация Orval

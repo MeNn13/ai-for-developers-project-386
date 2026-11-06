@@ -420,6 +420,7 @@ export function BookingPage() {
 
                 <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
                   <DatePicker
+                    ariaLabels={{ nextMonth: 'Следующий месяц', previousMonth: 'Предыдущий месяц' }}
                     value={selectedDay}
                     onChange={selectDay}
                     date={visibleMonth ?? undefined}
