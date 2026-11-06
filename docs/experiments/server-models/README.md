@@ -1,5 +1,104 @@
 # Проверка серверных моделей TypeSpec (#52)
 
+## Продолжение: #54, 7 ноября 2026
+
+Связанные задачи: [спецификация #49](https://github.com/MeNn13/ai-for-developers-project-386/issues/49),
+[первый эксперимент #52](https://github.com/MeNn13/ai-for-developers-project-386/issues/52).
+Разделы ниже сохраняют историю первого эксперимента; актуальный результат — здесь.
+
+**Конфликт Alloy устранён откатом emitter на `0.58.0-alpha.32`. Генерация успешна,
+но совместимость с проектом не подтверждена: сборка неизменённых моделей на
+net10.0 падает с CS8618. Сериализация не выполнена.** Production не изменён.
+
+### Официальные источники и варианты
+
+Помимо справки ниже проверены метаданные официальных опубликованных пакетов
+через `npm view` (реестр npm, не предположения по наличию опции `models`):
+
+- [alpha.32](https://www.npmjs.com/package/@typespec/http-server-csharp/v/0.58.0-alpha.32):
+  Alloy core `^0.24.1`, csharp/msbuild `^0.24.0`, emitter-framework `^0.21.0`.
+  Peer compiler/http/json-schema `^1.16.0` допускают текущие `1.17.0`;
+  rest/versioning требуют `^0.86.0`, поэтому изолированно закреплены `0.86.0`.
+- [alpha.33](https://www.npmjs.com/package/@typespec/http-server-csharp/v/0.58.0-alpha.33)
+  остаётся `latest`: Alloy `^0.25.0` и framework `^0.21.0`. Исходный конфликт
+  уже воспроизведён в #52; повторный запуск этой комбинации не требовался.
+- [alpha.34-dev.2](https://www.npmjs.com/package/@typespec/http-server-csharp/v/0.58.0-alpha.34-dev.2)
+  — `next`: разрешает framework `^0.21.0 || >= 0.22.0-dev.1`.
+  С прямыми framework `0.22.0-dev.2`, canonicalization `0.16.5-dev.4`,
+  Alloy core/csharp `0.25.0` установка успешна, но генерация с compiler `1.17.0`
+  падает: `does not provide an export named 'resolveEncodedEnumMemberValue'`.
+  При этом canonicalization всё ещё устанавливает вложенный framework `0.21.0`
+  с Alloy `0.24.1`: прямое закрепление framework не согласует всю цепочку.
+- Попытка nightly-набора: compiler `1.18.0-dev.15`, http `1.18.0-dev.6`,
+  json-schema `1.18.0-dev.2`, openapi `1.18.0-dev.1`, rest `0.88.0-dev.0`,
+  versioning `0.88.0-dev.2`, остальные next-версии выше и override framework
+  на прямую зависимость. Установка **ERESOLVE**: canonicalization требует
+  compiler `^1.16.0 || >= 1.17.0-dev.0`, не допускающий prerelease 1.18.
+  Генерация этого набора не выполнялась. `--force`/`--legacy-peer-deps` не применялись.
+
+Запросы метаданных воспроизводятся командами (из корня):
+
+```powershell
+mise exec -- npm view @typespec/http-server-csharp dist-tags dependencies peerDependencies --json
+mise exec -- npm view @typespec/http-server-csharp@0.58.0-alpha.32 dependencies peerDependencies --json
+mise exec -- npm view @typespec/http-server-csharp@0.58.0-alpha.34-dev.2 dependencies peerDependencies --json
+mise exec -- npm view @typespec/emitter-framework@0.22.0-dev.2 dependencies peerDependencies --json
+mise exec -- npm view @typespec/http-canonicalization@0.16.5-dev.4 dependencies peerDependencies --json
+```
+
+### Воспроизведение текущего результата
+
+Версии Node/npm/.NET сохранены из исходного окружения ниже. Точные прямые
+версии — в `package.json`, транзитивные — в обновлённом `package-lock.json`.
+Никаких overrides в итоговом наборе нет. Фактическое дерево:
+emitter `0.58.0-alpha.32`, framework `0.21.0`, Alloy core `0.24.1`,
+csharp/msbuild `0.24.0`; все ссылки на core deduped.
+
+```powershell
+mise exec -- npm ci --prefix docs/experiments/server-models --ignore-scripts
+mise exec -- npm ls @alloy-js/core @alloy-js/csharp --prefix docs/experiments/server-models
+mise exec -- node docs/experiments/server-models/generate.mjs
+mise exec -- dotnet run --project docs/experiments/server-models/Probe.csproj
+```
+
+Генерация: код **0**, `Compilation completed successfully`, compiler `1.17.0`.
+Вход — побайтовая копия текущего `contract/main.tsp`, без правок. Несмотря на
+`output-type=models`, alpha.32 также создаёт controllers/operations и Program.cs.
+Probe их не компилирует: явно включает только models и lib. Файлы не исправляются.
+Для helpers требуется framework reference `Microsoft.AspNetCore.App`; приложение
+при этом не переводится на MVC.
+
+Сборка: код **1**, CS8618 в generated моделях (например, `Meeting.Id`,
+`MeetingCreateRequest.GuestName`, `ProblemDetails.Errors`, response `Body`).
+Унаследованное `Directory.Build.props` превращает предупреждения в ошибки.
+Отключение nullable, предупреждений и линтеров не применялось.
+При первой попытке с включением всех helpers дополнительно получен CS1501
+в `HttpServiceException.cs:45` (`Headers.Append`). Итоговый probe исключает этот
+неиспользуемый моделями MVC-фильтр; CS8618 остаётся самостоятельным блокером.
+Это результат сборки под правилами репозитория, а не доказательство невозможности
+компиляции на .NET 10 с другими настройками.
+
+`Probe.cs` содержит заготовку сериализации с web-настройками System.Text.Json.
+Она **не исполнялась** из-за сборки; не является conformance-тестом и не
+подтверждает соответствие схемам. Изучены `ContractConformanceTests.cs` и
+`OpenApiContract.cs`: следующему этапу нужна такая же проверка JSON Schema.
+
+Вся матрица ниже (UUID, строковые ID, date/date-time, 200/201, 400/404/409,
+enum и необязательные errors) остаётся **не проверена сериализацией**.
+Статический просмотр выявил кандидатов для проверки: date представлен DateTime,
+enum type — string, errors — non-nullable dictionary без инициализации;
+обёртки ответов содержат body/statusCode. Это наблюдения о коде, не результаты
+проверки wire-формата. HTTP-обёртки нельзя автоматически считать телами ответов.
+
+### Следующее действие
+
+Не подключать alpha.32 к production. Следующий отдельный шаг — получить upstream
+исправление инициализации/nullable и проверить генерацию, сборку при тех же строгих
+настройках и полную матрицу JSON Schema. Для next дополнительно нужны совместимые
+диапазоны compiler и единый framework во всей цепочке canonicalization.
+Linux, MVC-scaffolding и сборка с ослабленными правилами не проверялись.
+Положительная генерация не закрывает #49 и не подтверждает интеграцию.
+
 ## Результат
 
 На 6 ноября 2026 года проверенный официальный emitter
