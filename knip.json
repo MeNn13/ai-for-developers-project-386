@@ -2,6 +2,9 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignore": [".agents/**"],
   "workspaces": {
+    "docs/experiments/server-models": {
+      "entry": ["generate.mjs"]
+    },
     "frontend": {
       "project": ["src/**/*.{ts,tsx}"],
       "ignore": ["src/api/generated/**"]
