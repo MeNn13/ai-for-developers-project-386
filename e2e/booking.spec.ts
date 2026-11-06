@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 async function selectLastWorkingDay(page: Page) {
+  // Prefer the last working day so a run near today's closing time has future slots.
   await expect(page.getByRole('status', { name: 'Загрузка слотов' })).toHaveCount(0)
   const nextMonth = page.getByRole('button', { name: 'Следующий месяц' })
   if (await nextMonth.isEnabled()) {
@@ -112,22 +113,7 @@ test('owner creates a meeting type and sees the guest booking', async ({ page })
 
   await page.goto('/book')
   await page.getByRole('button', { name: /Browser consultation/ }).click()
-  // The calendar exposes the current booking window. Prefer its last working
-  // day so even a run near today's closing time chooses a future slot.
-  await expect(page.getByRole('status', { name: 'Загрузка слотов' })).toHaveCount(0)
-  const nextMonth = page.getByRole('button', { name: 'Следующий месяц' })
-  if (await nextMonth.isEnabled()) {
-    await nextMonth.click()
-  }
-  const days = page.getByRole('table').getByRole('button')
-  let day = ''
-  for (const candidate of (await days.all()).reverse()) {
-    if (await candidate.isEnabled()) {
-      day = (await candidate.getAttribute('aria-label')) ?? ''
-      await candidate.click()
-      break
-    }
-  }
+  const day = await selectLastWorkingDay(page)
   const slot = page.getByRole('button', { name: /^\d{2}:\d{2}–\d{2}:\d{2}$/ }).first()
   await expect(slot).toBeEnabled()
   const time = await slot.innerText()
