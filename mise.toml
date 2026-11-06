@@ -110,6 +110,10 @@ run = "dotnet test backend/BookingCalendar.sln --no-restore --nologo"
 [tasks."test:web"]
 run = "npm test --workspace frontend"
 
+[tasks."test:e2e"]
+depends = ["build"]
+run = "npx playwright test"
+
 [tasks.check]
 run = [
   { task = "lint" },
@@ -119,6 +123,7 @@ run = [
   { task = "test" },
   { task = "test:web" },
   { task = "build" },
+  { task = "test:e2e" },
   { task = "generate:check" },
 ]
 

@@ -54,6 +54,9 @@ jobs:
       - name: Install dependencies
         run: mise run install
 
+      - name: Install Chromium and system dependencies
+        run: mise exec -- npx playwright install --with-deps chromium
+
       - name: Check commit messages
         if: github.event_name == 'pull_request'
         run: npx commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
@@ -78,6 +81,15 @@ jobs:
 
       - name: Run checks
         run: mise run check
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-diagnostics
+          path: artifacts/e2e/
+          if-no-files-found: ignore
+          retention-days: 7
 
   # The Hexlet requirement says the project must build into an image and run in
   # a container, so that is checked on every pull request. It is a separate job
