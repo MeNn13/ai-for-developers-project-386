@@ -6,6 +6,11 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+    inputs:
+      public_acceptance:
+        description: 'Create a test booking on the public Render service'
+        type: boolean
+        default: false
   schedule:
     # A new advisory can fail the build without any change on our side.
     - cron: '17 5 * * 1'
@@ -18,6 +23,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  public-acceptance:
+    if: github.event_name == 'workflow_dispatch' && inputs.public_acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check public HTTP booking flow
+        run: node scripts/public-acceptance.mjs
+
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
