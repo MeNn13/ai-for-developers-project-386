@@ -7,9 +7,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Probe.cs" />
+    <Compile Include="../../../backend/BookingCalendar.Api.Tests/OpenApiContract.cs" Link="OpenApiContract.cs" />
     <Compile Include="artifacts/generated/@typespec/http-server-csharp/generated/models/*.cs" />
     <Compile Include="artifacts/generated/@typespec/http-server-csharp/generated/lib/*.cs"
              Exclude="artifacts/generated/@typespec/http-server-csharp/generated/lib/HttpServiceException.cs" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="JsonSchema.Net" Version="9.5.0" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 </Project>
