@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/MeNn13/ai-for-developers-project-386/compare/v0.2.1...v0.2.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* validate patched server model generation ([11b3692](https://github.com/MeNn13/ai-for-developers-project-386/commit/11b3692a1a482d01646635c8eb4e0bc646278eae))
+* validate patched server model generation ([#56](https://github.com/MeNn13/ai-for-developers-project-386/issues/56)) ([56d768c](https://github.com/MeNn13/ai-for-developers-project-386/commit/56d768cb9230e4bfb16c276289a22b2d970172a0))
+
 ## [0.2.1](https://github.com/MeNn13/ai-for-developers-project-386/compare/v0.2.0...v0.2.1) (2026-10-31)
 
 
