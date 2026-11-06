@@ -3,7 +3,7 @@
   "ignore": [".agents/**"],
   "workspaces": {
     "docs/experiments/server-models": {
-      "entry": ["generate.mjs"]
+      "entry": ["generate.mjs", "patch-emitter.mjs"]
     },
     "frontend": {
       "project": ["src/**/*.{ts,tsx}"],
