@@ -8,7 +8,7 @@
 
 - Backend: ASP.NET Core 10, Minimal API.
 - Frontend: React 19, TypeScript, Vite 8, Mantine 9.
-- Контракт: TypeSpec → OpenAPI 3.0 → TypeScript-клиент (Orval).
+- Контракт: TypeSpec → OpenAPI 3.0 → TypeScript-клиент (Orval) и серверные C# DTO.
 
 ## Команды
 
@@ -24,7 +24,8 @@
 - `mise run test:web` — тесты frontend.
 - `mise run lint` — линтеры.
 - `mise run build` — production-сборка backend и frontend.
-- `mise run generate` — TypeSpec → OpenAPI → клиент.
+- `mise run generate` — OpenAPI, клиент и серверные DTO из TypeSpec.
+- `mise run generate:check` — проверка актуальности всех артефактов без их изменения.
 - `mise run docker:build` / `docker:run` — образ и контейнер локально.
 - `mise run docker:check` — собрать образ, запустить контейнер, проверить ответы
   (медленно, поэтому только CI и вручную).
@@ -35,6 +36,8 @@
 
 - `backend/` — ASP.NET Core API и xUnit-тесты.
 - `contract/` — TypeSpec, `contract/openapi/openapi.yaml`, конфигурация Orval.
+- `contract/server/` — изолированный emitter и проектный патч; результат в
+  `backend/BookingCalendar.Api/Generated`.
 - `frontend/` — React/Vite/Mantine; сгенерированный клиент в `src/api/generated`.
 - `mise.toml` — версии и задачи, `hk.pkl` — git-хуки, `.github/workflows/ci.yml` — CI.
 - `Dockerfile` — один образ: API и собранный фронтенд в `wwwroot`; `scripts/image-check.mjs`
@@ -46,9 +49,14 @@
 ## Правила
 
 - `contract/main.tsp` — источник истины для API. После изменения контракта запустить
-  `mise run generate` и коммитить OpenAPI и клиент вместе.
-- `frontend/src/api/generated` и `contract/openapi/openapi.yaml` — сгенерированные
-  файлы, руками не правятся: `mise run check` перегенерирует их и упадёт на расхождении.
+  `mise run generate` и коммитить OpenAPI, клиент и серверные DTO вместе.
+- `frontend/src/api/generated`, `contract/openapi` и
+  `backend/BookingCalendar.Api/Generated` целиком принадлежат генераторам;
+  ручное редактирование, включая generated C#, запрещено. `mise run check`
+  сначала сравнивает их со свежей генерацией в `artifacts/`, включая лишние файлы,
+  и падает на расхождении без исправления. Для восстановления — `mise run generate`.
+- При обновлении emitter или патча читать `contract/server/README.md` и ADR-0003.
+  Generated DTO используются только в API; Domain и Application от них независимы.
 - Правила линтеров не отключаются ради зелёной сборки. Исключение — узкое (путь и
   правило), с причиной и датой ревью (например, `expires` в `.github/jactionlint.yaml`),
   и это решение человека, а не агента.

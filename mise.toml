@@ -35,10 +35,10 @@ run = "dotnet restore backend/BookingCalendar.sln --locked-mode"
 run = "npm ci"
 
 [tasks.generate]
-run = ["npm run generate --workspace contract", "node contract/server/generate.mjs"]
+run = "node scripts/generate.mjs"
 
 [tasks."generate:check"]
-run = ["node contract/server/generate.mjs --check", "npm run generate --workspace contract && git diff --exit-code -- contract/openapi frontend/src/api/generated"]
+run = "node scripts/generate.mjs --check"
 
 [tasks.lint]
 depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "lint:docs", "lint:docker", "lint:encoding", "knip", "syncpack", "agent:lint", "contract:lint"]
@@ -119,6 +119,7 @@ run = "npx playwright test"
 
 [tasks.check]
 run = [
+  { task = "generate:check" },
   { task = "lint" },
   { task = "secrets" },
   { task = "typecheck" },
@@ -127,7 +128,6 @@ run = [
   { task = "test:web" },
   { task = "build" },
   { task = "test:e2e" },
-  { task = "generate:check" },
 ]
 
 [tasks.build]
