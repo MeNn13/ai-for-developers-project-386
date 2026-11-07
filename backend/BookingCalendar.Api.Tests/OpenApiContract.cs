@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Json.Schema;
@@ -42,6 +43,9 @@ internal sealed class OpenApiContract
             Operation(path, method)["responses"]![status.ToString(CultureInfo.InvariantCulture)]!["content"]!["application/json"]!["schema"]!);
 
     public JsonSchema ProblemSchema => Compile(Component("ProblemDetails"));
+
+    public static bool Matches(JsonSchema schema, JsonNode body) =>
+        schema.Evaluate(JsonSerializer.SerializeToElement(body), new EvaluationOptions { RequireFormatValidation = true }).IsValid;
 
     public JsonSchema RequestSchema(string path, string method) =>
         Compile(Operation(path, method)["requestBody"]!["content"]!["application/json"]!["schema"]!);

@@ -3,7 +3,7 @@
   "ignore": [".agents/**"],
   "workspaces": {
     "contract/server": {
-      "entry": ["patch-emitter.mjs"]
+      "entry": ["generate.mjs", "patch-emitter.mjs"]
     },
     "docs/experiments/server-models": {
       "entry": ["generate.mjs", "patch-emitter.mjs"]

@@ -1,8 +1,7 @@
 using System.Net;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
-using Json.Schema;
+using static BookingCalendar.Api.Tests.OpenApiContract;
 
 namespace BookingCalendar.Api.Tests;
 
@@ -106,6 +105,4 @@ public class MeetingContractTests(TestApp app) : IClassFixture<TestApp>
         Assert.False(problem.ContainsKey("errors"));
     }
 
-    private static bool Matches(JsonSchema schema, JsonNode body) =>
-        schema.Evaluate(JsonSerializer.SerializeToElement(body), new EvaluationOptions { RequireFormatValidation = true }).IsValid;
 }
