@@ -66,3 +66,30 @@ null и неверные JSON-типы, принимают лишние поля
 Отрицательные примеры отвергают неверный UUID, дату без времени и обёртку.
 Существующие проверки 400/404/409 по полным схемам, частичного пересечения,
 порядка списка и 20 раундов конкурентной записи сохраняются.
+
+Проверка #63 от 2026-11-07: контрольная мутация `window.from` на следующий день
+дала два красных HTTP-теста. После удаления мутации и замены оставшихся DTO слотов
+на generated-классы зелёные 130 backend-тестов. Непустой ответ проверяется до и после
+бронирования по полной схеме с format validation; отрицательные примеры отвергают
+timestamp вместо date-only, невозможную дату дня, date-only вместо date-time,
+строку вместо boolean available и HTTP-обёртку. Ошибки параметра сохраняют detail,
+instance и присутствие errors; у неизвестного типа errors отсутствует.
+
+Матрица HTTP-conformance после миграции покрывает все шесть операций и 13
+объявленных сочетаний операции и статуса. `ContractConformanceTests` получает
+операции и проблемные статусы непосредственно из OpenAPI; новый статус без
+подготовленного публичного HTTP-сценария завершает тест ошибкой.
+
+| Операция                | Успех | Ошибки                                                                                | Дополнительная проверка тела                                 |
+| ----------------------- | ----- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| GET /api/health         | 200   | —                                                                                     | HealthSmokeTests: status ok                                  |
+| GET /api/meeting-types  | 200   | —                                                                                     | MeetingTypeContractTests: непустой массив                    |
+| POST /api/meeting-types | 201   | 400 validation-failed, 409 meeting-type-exists                                        | MeetingTypeContractTests: строки, required, errors           |
+| GET /api/meetings       | 200   | —                                                                                     | MeetingContractTests: непустой массив, UUID                  |
+| POST /api/meetings      | 201   | 400 validation-failed / slot-not-bookable, 404 meeting-type-not-found, 409 slot-taken | MeetingContractTests и MeetingTests: UUID, date-time, ошибки |
+| GET /api/slots          | 200   | 400 validation-failed, 404 meeting-type-not-found                                     | SlotContractTests: date-only, date-time, available           |
+
+Необъявленный маршрут `/api/missing` проверяет UnknownRouteTests: 404 not-found
+по компоненту ProblemDetails, так как операции fallback нет в OpenAPI.
+Все шесть slug из enum ProblemDetails наблюдаются через HTTP. Generated DTO
+остаются только в API; параллельных ручных транспортных структур больше нет.
