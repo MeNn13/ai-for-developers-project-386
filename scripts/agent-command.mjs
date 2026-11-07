@@ -18,7 +18,7 @@ const gitCommands = new Set([
   'commit',
 ])
 const issueCommands = new Set(['view', 'list', 'status', 'create', 'edit', 'close', 'reopen'])
-const prCommands = new Set(['view', 'list', 'status', 'diff', 'checks', 'create', 'edit'])
+const prCommands = new Set(['view', 'list', 'status', 'diff', 'checks', 'create', 'edit', 'ready'])
 
 export function isAllowed(command) {
   if (!Array.isArray(command) || !command.every((arg) => typeof arg === 'string')) return false

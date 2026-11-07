@@ -82,6 +82,12 @@ run = "npm run syncpack"
 [tasks."agent:lint"]
 run = "npm run agent:lint"
 
+[tasks."agent:rules"]
+run = "node scripts/agent-rules.mjs --output artifacts/agent-workflow.rules"
+
+[tasks."agent:permissions"]
+run = "node scripts/agent-permissions.mjs"
+
 [tasks.secrets]
 run = "betterleaks dir . --no-banner --redact"
 

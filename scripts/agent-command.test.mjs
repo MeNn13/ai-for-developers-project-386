@@ -10,6 +10,7 @@ test('allows routine Git and GitHub operations', () => {
     ['gh', 'issue', 'view', '39'],
     ['gh', 'issue', 'create', '--title', 'A title; no shell expansion'],
     ['gh', 'pr', 'create', '--body-file', 'artifacts/pr.md'],
+    ['gh', 'pr', 'ready', '65'],
   ])
     assert.equal(isAllowed(command), true, JSON.stringify(command))
 })
