@@ -3,7 +3,8 @@ using System.Text.Json;
 using BookingCalendar.Api.Http;
 using BookingCalendar.Application.Abstractions;
 
-using MeetingTypeDto = BookingCalendar.Api.Contracts.MeetingType;
+using MeetingTypeDto = BookingCalendar.MeetingType;
+using MeetingTypeRequestDto = BookingCalendar.MeetingTypeCreateRequest;
 
 namespace BookingCalendar.Api.Endpoints;
 
@@ -49,7 +50,13 @@ internal static class MeetingTypeEndpoints
             errors);
         var duration = ReadDuration(document.RootElement, errors);
 
-        var result = service.Create(id, title, description, duration);
+        // Сначала собираем все структурные и доменные ошибки, как до миграции.
+        // В required-свойства не передаём null; невалидный JSON остаётся в ручном разборе.
+        var payload = id is not null && title is not null && description is not null && duration is not null
+            ? new MeetingTypeRequestDto { Id = id, Title = title, Description = description, DurationMinutes = duration.Value }
+            : null;
+        var result = service.Create(payload?.Id ?? id, payload?.Title ?? title,
+            payload?.Description ?? description, payload?.DurationMinutes ?? duration);
         foreach (var error in result.Errors) { errors[error.Key] = [.. error.Value]; }
 
         if (errors.Count > 0)
@@ -111,5 +118,11 @@ internal static class MeetingTypeEndpoints
     }
 
     private static MeetingTypeDto ToContract(BookingCalendar.Domain.Aggregates.MeetingType type) =>
-        new(type.Id.Value, type.Title.Value, type.Description.Value, type.Duration.Value);
+        new()
+        {
+            Id = type.Id.Value,
+            Title = type.Title.Value,
+            Description = type.Description.Value,
+            DurationMinutes = type.Duration.Value,
+        };
 }

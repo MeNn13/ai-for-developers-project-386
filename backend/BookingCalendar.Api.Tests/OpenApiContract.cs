@@ -43,6 +43,9 @@ internal sealed class OpenApiContract
 
     public JsonSchema ProblemSchema => Compile(Component("ProblemDetails"));
 
+    public JsonSchema RequestSchema(string path, string method) =>
+        Compile(Operation(path, method)["requestBody"]!["content"]!["application/json"]!["schema"]!);
+
     // Имя схемы тела запроса операции (для выбора примера из контракта).
     public string RequestSchemaName(string path, string method)
     {
@@ -138,6 +141,15 @@ internal sealed class OpenApiContract
                     break;
                 case "items" or "additionalProperties" when pair.Value is JsonObject:
                     result[pair.Key] = ConvertSchema(pair.Value);
+                    break;
+                case "anyOf" or "oneOf":
+                    var alternatives = new JsonArray();
+                    foreach (var item in pair.Value!.AsArray())
+                    {
+                        alternatives.Add(ConvertSchema(item!));
+                    }
+
+                    result[pair.Key] = alternatives;
                     break;
                 case "properties":
                     var properties = new JsonObject();

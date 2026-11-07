@@ -33,7 +33,7 @@ public class ContractConformanceTests(TestApp app) : IClassFixture<TestApp>
         var body = await response.Content.ReadAsStringAsync();
         using var document = JsonDocument.Parse(body);
         var result = OpenApiContract.Instance.ResponseSchema(path, method, status)
-            .Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+            .Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true });
 
         Assert.True(
             result.IsValid,
