@@ -88,6 +88,9 @@ run = "node scripts/agent-rules.mjs --output artifacts/agent-workflow.rules"
 [tasks."agent:permissions"]
 run = "node scripts/agent-permissions.mjs"
 
+[tasks."agent:worktree-cleanup"]
+run = "node scripts/agent-worktree-cleanup.mjs"
+
 [tasks.secrets]
 run = "betterleaks dir . --no-banner --redact"
 

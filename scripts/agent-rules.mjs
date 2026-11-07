@@ -26,6 +26,7 @@ const tasks = [
   'agent:lint',
   'agent:rules',
   'agent:permissions',
+  'agent:worktree-cleanup',
   'secrets',
   'build',
   'build:dotnet',
@@ -56,6 +57,7 @@ const commands = [
   'mise exec -- node --version',
   'node scripts/agent-command.mjs',
   'node scripts/agent-push.mjs',
+  'node scripts/agent-worktree-cleanup.mjs',
   ...tasks.map((task) => `mise run ${task}`),
 ]
 const rules = []
@@ -92,7 +94,10 @@ rule(['gh', 'issue', ['view', 'list', 'status', 'create', 'edit', 'close', 'reop
 rule(['gh', 'pr', ['view', 'list', 'status', 'diff', 'checks', 'create', 'edit']])
 rule(['gh', 'pr', ['merge', 'close']], 'prompt')
 rule(['gh', 'repo', 'view'])
-rule(['node', ['scripts/agent-command.mjs', 'scripts/agent-push.mjs']])
+rule([
+  'node',
+  ['scripts/agent-command.mjs', 'scripts/agent-push.mjs', 'scripts/agent-worktree-cleanup.mjs'],
+])
 rule(['Get-Command', 'mise'])
 rule(['mise', 'exec', '--', 'node', '--version'])
 rule(['mise', 'run', tasks])

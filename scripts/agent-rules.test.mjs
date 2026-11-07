@@ -29,6 +29,7 @@ test(
       'mise run lint:docs',
       'mise run generate:check',
       'node scripts/agent-command.mjs',
+      'node scripts/agent-worktree-cleanup.mjs',
     ]) {
       const result = spawnSync(
         codex,
@@ -43,6 +44,7 @@ test(
       'mise run fix > output.txt',
       'node -e "process.exit()"',
       'Remove-Item -Recurse .',
+      'node scripts/agent-worktree-cleanup.mjs; Remove-Item -Recurse .',
       'git push origin main',
     ]) {
       const result = spawnSync(
