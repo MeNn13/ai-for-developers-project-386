@@ -1,6 +1,10 @@
-using BookingCalendar.Api.Contracts;
 using BookingCalendar.Api.Http;
 using BookingCalendar.Application.Abstractions;
+
+using SlotDayDto = BookingCalendar.Api.Contracts.SlotDay;
+using SlotDto = BookingCalendar.Api.Contracts.Slot;
+using SlotsResponseDto = BookingCalendar.Api.Contracts.SlotsResponse;
+using SlotWindowDto = BookingCalendar.Api.Contracts.SlotWindow;
 
 namespace BookingCalendar.Api.Endpoints;
 
@@ -40,11 +44,11 @@ internal static class SlotEndpoints
             return Problems.MeetingTypeNotFound(instance);
         }
 
-        var response = new SlotsResponse(
+        var response = new SlotsResponseDto(
             availability.Timezone,
-            new SlotWindow(availability.From, availability.To),
-            availability.Days.Select(day => new SlotDay(day.Date,
-                day.Slots.Select(slot => new Slot(slot.Start, slot.End, slot.Available)).ToArray())).ToArray());
+            new SlotWindowDto(availability.From, availability.To),
+            availability.Days.Select(day => new SlotDayDto(day.Date,
+                day.Slots.Select(slot => new SlotDto(slot.Start, slot.End, slot.Available)).ToArray())).ToArray());
         return Results.Json(response);
     }
 }

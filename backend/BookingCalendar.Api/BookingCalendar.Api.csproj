@@ -14,4 +14,10 @@
     <ProjectReference Include="..\BookingCalendar.Application\BookingCalendar.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="Generated/**/*.cs" />
+    <Compile Include="Generated/Models/*.cs" />
+    <Compile Include="Generated/Lib/*.cs" />
+  </ItemGroup>
+
 </Project>

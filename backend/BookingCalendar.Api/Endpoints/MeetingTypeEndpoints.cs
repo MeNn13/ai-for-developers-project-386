@@ -1,8 +1,9 @@
 using System.Text.Json;
 
-using BookingCalendar.Api.Contracts;
 using BookingCalendar.Api.Http;
 using BookingCalendar.Application.Abstractions;
+
+using MeetingTypeDto = BookingCalendar.Api.Contracts.MeetingType;
 
 namespace BookingCalendar.Api.Endpoints;
 
@@ -109,6 +110,6 @@ internal static class MeetingTypeEndpoints
         return duration;
     }
 
-    private static MeetingType ToContract(BookingCalendar.Domain.Aggregates.MeetingType type) =>
+    private static MeetingTypeDto ToContract(BookingCalendar.Domain.Aggregates.MeetingType type) =>
         new(type.Id.Value, type.Title.Value, type.Description.Value, type.Duration.Value);
 }
