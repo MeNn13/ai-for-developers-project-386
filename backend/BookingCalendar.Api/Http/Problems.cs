@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using BookingCalendar.Api.Contracts;
+using ProblemDto = BookingCalendar.ProblemDetails;
 
 namespace BookingCalendar.Api.Http;
 
@@ -43,7 +43,15 @@ internal static class Problems
         string detail,
         IReadOnlyDictionary<string, string[]>? errors = null)
     {
-        var problem = new ApiProblem(slug, title, statusCode, detail, instance, errors);
+        var problem = new ProblemDto
+        {
+            Type = slug,
+            Title = title,
+            Status = statusCode,
+            Detail = detail,
+            Instance = instance,
+            Errors = errors?.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
+        };
         return Results.Json(problem, s_problemJsonOptions, "application/problem+json", statusCode);
     }
 }

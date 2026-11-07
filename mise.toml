@@ -23,7 +23,10 @@ ASPNETCORE_ENVIRONMENT = "Development"
 ASPNETCORE_URLS = "http://127.0.0.1:5000"
 
 [tasks.install]
-depends = ["install:dotnet", "install:web"]
+depends = ["install:dotnet", "install:web", "install:server"]
+
+[tasks."install:server"]
+run = "npm ci --prefix contract/server --ignore-scripts"
 
 [tasks."install:dotnet"]
 run = "dotnet restore backend/BookingCalendar.sln --locked-mode"
@@ -32,10 +35,10 @@ run = "dotnet restore backend/BookingCalendar.sln --locked-mode"
 run = "npm ci"
 
 [tasks.generate]
-run = "npm run generate --workspace contract"
+run = "node scripts/generate.mjs"
 
 [tasks."generate:check"]
-run = "npm run generate --workspace contract && git diff --exit-code -- contract/openapi frontend/src/api/generated"
+run = "node scripts/generate.mjs --check"
 
 [tasks.lint]
 depends = ["lint:dotnet", "lint:contract", "lint:web", "lint:format", "lint:ci", "lint:docs", "lint:docker", "lint:encoding", "knip", "syncpack", "agent:lint", "contract:lint"]
@@ -116,6 +119,7 @@ run = "npx playwright test"
 
 [tasks.check]
 run = [
+  { task = "generate:check" },
   { task = "lint" },
   { task = "secrets" },
   { task = "typecheck" },
@@ -124,7 +128,6 @@ run = [
   { task = "test:web" },
   { task = "build" },
   { task = "test:e2e" },
-  { task = "generate:check" },
 ]
 
 [tasks.build]

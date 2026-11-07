@@ -7,6 +7,9 @@ using BookingCalendar.Domain.Aggregates;
 using BookingCalendar.Domain.Rules;
 using BookingCalendar.Domain.ValueObjects;
 
+using MeetingDto = BookingCalendar.Meeting;
+using MeetingRequestDto = BookingCalendar.MeetingCreateRequest;
+
 namespace BookingCalendar.Api.Endpoints;
 
 // Эндпоинты встреч: создание с повторной проверкой правил слота и чтение
@@ -69,7 +72,13 @@ internal static class MeetingEndpoints
                 errors.ToDictionary(pair => pair.Key, pair => pair.Value.ToArray(), StringComparer.Ordinal));
         }
 
-        var result = service.Book(meetingTypeId!, start!.Value, guestName!);
+        var payload = new MeetingRequestDto
+        {
+            MeetingTypeId = meetingTypeId!,
+            Start = start!.Value,
+            GuestName = guestName!,
+        };
+        var result = service.Book(payload.MeetingTypeId, payload.Start, payload.GuestName);
         return result.Outcome switch
         {
             BookingOutcome.Created => Results.Json(ToContract(result.Meeting!), statusCode: StatusCodes.Status201Created),
@@ -81,9 +90,17 @@ internal static class MeetingEndpoints
         };
     }
 
-    private static Contracts.Meeting ToContract(BookingCalendar.Domain.Entities.Meeting meeting) =>
-        new(meeting.Id, meeting.MeetingTypeId, meeting.MeetingTypeTitle, meeting.DurationMinutes,
-            meeting.Start, meeting.End, meeting.GuestName);
+    private static MeetingDto ToContract(BookingCalendar.Domain.Entities.Meeting meeting) =>
+        new()
+        {
+            Id = meeting.Id.ToString("D", CultureInfo.InvariantCulture),
+            MeetingTypeId = meeting.MeetingTypeId,
+            MeetingTypeTitle = meeting.MeetingTypeTitle,
+            DurationMinutes = meeting.DurationMinutes,
+            Start = meeting.Start,
+            End = meeting.End,
+            GuestName = meeting.GuestName,
+        };
 
     private static string? ReadString(
         JsonElement root,

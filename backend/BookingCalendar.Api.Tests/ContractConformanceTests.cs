@@ -33,11 +33,29 @@ public class ContractConformanceTests(TestApp app) : IClassFixture<TestApp>
         var body = await response.Content.ReadAsStringAsync();
         using var document = JsonDocument.Parse(body);
         var result = OpenApiContract.Instance.ResponseSchema(path, method, status)
-            .Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+            .Evaluate(document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true });
 
         Assert.True(
             result.IsValid,
             $"Тело {method} {path} не соответствует схеме контракта.\n{result}\n{body}");
+    }
+
+    [Theory]
+    [MemberData(nameof(ContractProblemResponses))]
+    public async Task EveryDeclaredProblemStatusMatchesOperationSchema(string path, string method, int status)
+    {
+        using var client = app.CreateClient();
+        using var response = await SendProblemOperationAsync(client, path, method, status);
+        Assert.Equal(status, (int)response.StatusCode);
+        var slug = (path, status) switch
+        {
+            (_, 400) => "validation-failed",
+            (_, 404) => "meeting-type-not-found",
+            ("/api/meeting-types", 409) => "meeting-type-exists",
+            ("/api/meetings", 409) => "slot-taken",
+            _ => throw new NotSupportedException($"Нет примера для {method} {path} {status}."),
+        };
+        await ProblemAssertions.AssertProblem(response, slug);
     }
 
     [Fact]
@@ -76,6 +94,69 @@ public class ContractConformanceTests(TestApp app) : IClassFixture<TestApp>
 
             return data;
         }
+    }
+
+    public static TheoryData<string, string, int> ContractProblemResponses
+    {
+        get
+        {
+            var data = new TheoryData<string, string, int>();
+            foreach (var (path, methods) in OpenApiContract.Instance.PathMethods)
+            {
+                foreach (var method in methods)
+                {
+                    foreach (var status in OpenApiContract.Instance.ResponseStatusCodes(path, method).Where(status => status >= 400))
+                    {
+                        data.Add(path, method, status);
+                    }
+                }
+            }
+
+            return data;
+        }
+    }
+
+    private static async Task<HttpResponseMessage> SendProblemOperationAsync(HttpClient client, string path, string method, int status)
+    {
+        if (method == "get" && path == "/api/slots")
+        {
+            return await client.GetAsync(status switch
+            {
+                400 => path,
+                404 => path + "?meetingTypeId=conformance-missing",
+                _ => throw new NotSupportedException($"Нет примера для {method} {path} {status}."),
+            });
+        }
+
+        if (method == "post" && status == 400)
+        {
+            return await MeetingHttp.PostJsonAsync(client, path, "{}");
+        }
+
+        if (method == "post" && path == "/api/meetings" && status == 404)
+        {
+            return await MeetingHttp.CreateMeetingAsync(client, "conformance-missing", MeetingHttp.Moscow(6, 10, 0), "Анна");
+        }
+
+        if (method == "post" && status == 409)
+        {
+            var id = path == "/api/meeting-types" ? "conformance-duplicate" : "conformance-occupied";
+            using var type = await MeetingHttp.CreateMeetingTypeAsync(client, id, "Конфликт", 30);
+            type.EnsureSuccessStatusCode();
+            if (path == "/api/meeting-types")
+            {
+                return await MeetingHttp.CreateMeetingTypeAsync(client, id, "Конфликт", 30);
+            }
+
+            if (path == "/api/meetings")
+            {
+                using var first = await MeetingHttp.CreateMeetingAsync(client, id, MeetingHttp.Moscow(6, 10, 0), "Анна");
+                first.EnsureSuccessStatusCode();
+                return await MeetingHttp.CreateMeetingAsync(client, id, MeetingHttp.Moscow(6, 10, 0), "Борис");
+            }
+        }
+
+        throw new NotSupportedException($"Нет примера для {method} {path} {status}.");
     }
 
     private static async Task<HttpResponseMessage> SendOperationAsync(

@@ -1,7 +1,8 @@
-using BookingCalendar.Api.Contracts;
 using BookingCalendar.Api.Endpoints;
 using BookingCalendar.Api.Http;
 using BookingCalendar.Application;
+
+using HealthResponse = BookingCalendar.HealthResponse;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,7 +19,7 @@ app.UseStaticFiles();
 
 app.MapOpenApi();
 
-app.MapGet("/api/health", () => new HealthResponse("ok"));
+app.MapGet("/api/health", () => new HealthResponse());
 
 app.MapMeetingTypeEndpoints();
 app.MapSlotEndpoints();

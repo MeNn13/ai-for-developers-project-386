@@ -50,7 +50,7 @@
 
 - Backend: .NET 10 (LTS), ASP.NET Core Minimal API.
 - Frontend: React 19, TypeScript, Vite 8, Mantine 9.
-- Контракт: TypeSpec 1.17 → OpenAPI 3.0 → TypeScript-клиент (Orval).
+- Контракт: TypeSpec 1.17 → OpenAPI 3.0 → TypeScript-клиент (Orval) и серверные C# DTO.
 - Тесты: xUnit + `WebApplicationFactory` на бэкенде, Vitest + Testing Library на
   фронтенде.
 - Линтеры: анализаторы .NET + `dotnet format`, Oxlint, Prettier, rumdl.
@@ -140,11 +140,21 @@ knip, syncpack, vacuum), поиск секретов, проверку типо�
 проверок остаётся общей с CI. Нужен GNU Make; на Windows, если `make` не
 установлен, используйте команды `mise run` напрямую.
 
-Генерация контракта и клиента:
+Генерация OpenAPI, клиента и серверных транспортных моделей:
 
 ```bash
 mise run generate
 ```
+
+`mise run install` также устанавливает изолированные зависимости серверного
+генератора по lock-файлу. Каждая генерация явно применяет проектный патч emitter
+`0.58.0-alpha.32`, проверяя версию и исходники. Патч исправляет required, nullable
+и DateOnly; его сопровождение принято в [ADR-0003](docs/adr/0003-generated-server-models.md).
+Generated C# в `backend/BookingCalendar.Api/Generated`, OpenAPI и клиент вручную
+не редактируются. `mise run generate:check` и первый шаг общего `check` сравнивают
+их со свежей генерацией в `artifacts/`, обнаруживают также удалённые и лишние файлы
+и сохраняют проверяемые артефакты. [Устройство, обновление и свидетельства
+приёмки](contract/server/README.md) описаны рядом с генератором.
 
 ## Docker
 
@@ -310,7 +320,7 @@ frontend/   React, Vite, Mantine и сгенерированный клиент
 ```
 
 Бэкенд разделён на три проекта: `BookingCalendar.Api` содержит `Endpoints`,
-транспортные `Contracts` и обработку `Http`; `BookingCalendar.Application` —
+транспортные `Generated` и обработку `Http`; `BookingCalendar.Application` —
 интерфейсы `Abstractions`, сценарии `Services`, общее состояние `State` и модуль
 регистрации зависимостей; `BookingCalendar.Domain` — `Aggregates`, `Entities`,
 `ValueObjects` и чистые `Rules`. Application зависит от Domain, API подключает

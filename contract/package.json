@@ -6,7 +6,7 @@
   "scripts": {
     "compile": "tsp compile .",
     "generate": "tsp compile . && orval",
-    "lint": "tsp compile . --warn-as-error"
+    "lint": "tsp compile . --warn-as-error --no-emit"
   },
   "dependencies": {
     "@typespec/compiler": "1.17.0",

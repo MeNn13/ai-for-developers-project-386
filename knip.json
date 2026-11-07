@@ -2,6 +2,9 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignore": [".agents/**"],
   "workspaces": {
+    "contract/server": {
+      "entry": ["generate.mjs", "patch-emitter.mjs"]
+    },
     "docs/experiments/server-models": {
       "entry": ["generate.mjs", "patch-emitter.mjs"]
     },
