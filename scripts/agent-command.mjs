@@ -41,7 +41,9 @@ export function isAllowed(command) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (process.argv.length !== 2) throw new Error('Usage: node scripts/agent-command.mjs')
-  const command = JSON.parse(readFileSync('artifacts/agent-command.json', 'utf8'))
+  const command = JSON.parse(
+    readFileSync('artifacts/agent-command.json', 'utf8').replace(/^\uFEFF/, ''),
+  )
   if (!isAllowed(command)) throw new Error('Command requires separate approval')
   // No shell: JSON arguments are passed literally, including quotes and metacharacters.
   execFileSync(command[0], command.slice(1), { stdio: 'inherit' })
