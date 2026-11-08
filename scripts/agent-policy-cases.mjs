@@ -18,6 +18,8 @@ export const permissionCases = [
   ['mise exec -- node --version', true],
   ['mise run fix', true],
   ['mise run knip', true],
+  ['mise run agent:ready', true],
+  ['mise run agent:ready; git reset --hard', false],
   ['mise run lint:docs', true],
   ['mise run install', true],
   ['mise run generate:check', true],
