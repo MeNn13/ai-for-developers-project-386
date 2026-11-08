@@ -71,6 +71,7 @@ run = "hadolint Dockerfile"
 run = "node scripts/encoding-check.mjs"
 
 [tasks."test:scripts"]
+env = { MISE_TEST_BIN = "{{mise_bin}}" }
 run = "node --test scripts/*.test.mjs"
 
 [tasks.knip]
@@ -81,6 +82,10 @@ run = "npm run syncpack"
 
 [tasks."agent:lint"]
 run = "npm run agent:lint"
+
+[tasks."agent:ready"]
+description = "Check formatting and Knip before agent handoff"
+run = [{ task = "lint:format" }, { task = "knip" }]
 
 [tasks."agent:rules"]
 run = "node scripts/agent-rules.mjs --output artifacts/agent-workflow.rules"

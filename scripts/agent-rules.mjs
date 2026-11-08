@@ -24,6 +24,7 @@ const tasks = [
   'knip',
   'syncpack',
   'agent:lint',
+  'agent:ready',
   'agent:rules',
   'agent:permissions',
   'agent:worktree-cleanup',
