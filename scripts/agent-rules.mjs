@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { dirname, win32 } from 'node:path'
+import { dirname } from 'node:path'
+import { shells } from './agent-policy-cases.mjs'
 
 // These are named project operations, not permission to run arbitrary shell text.
 const tasks = [
@@ -41,16 +41,6 @@ const tasks = [
   'publish:api',
   'docker:build',
   'docker:check',
-]
-const shells = [
-  win32.join(
-    process.env.SystemRoot ?? 'C:\\WINDOWS',
-    'System32/WindowsPowerShell/v1.0/powershell.exe',
-  ),
-  win32.join(
-    homedir(),
-    '.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe',
-  ),
 ]
 const commands = [
   'Get-Command mise',

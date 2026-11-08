@@ -45,7 +45,7 @@ hooks {
         check = "betterleaks git --staged --no-banner --redact"
       }
       ["prettier"] {
-        glob = List("**/*.{ts,tsx,js,jsx,json,jsonc,css,html,md,yaml,yml}")
+        glob = List("**/*.{ts,tsx,js,jsx,mjs,json,jsonc,css,html,md,yaml,yml}")
         check = "npx prettier --check {{files}}"
       }
       ["oxlint"] {
