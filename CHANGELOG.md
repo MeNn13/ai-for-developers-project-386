@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.3.0](https://github.com/MeNn13/ai-for-developers-project-386/compare/v0.2.1...v0.3.0) (2026-11-08)
+
+
+### Features
+
+* **api:** generate server models and use health DTO ([#60](https://github.com/MeNn13/ai-for-developers-project-386/issues/60)) ([3ee5a99](https://github.com/MeNn13/ai-for-developers-project-386/commit/3ee5a99607d37e1dcd2324e4786b4a9c4b708828))
+* **api:** integrate generated server transport models ([779780b](https://github.com/MeNn13/ai-for-developers-project-386/commit/779780b80f6bcdacbc29f579182bcebc2d91bfd6))
+* **api:** use generated booking and meeting models ([#62](https://github.com/MeNn13/ai-for-developers-project-386/issues/62)) ([53eb9b8](https://github.com/MeNn13/ai-for-developers-project-386/commit/53eb9b8b341eb36507f3ac3e480dab5a91e1249d))
+* **api:** use generated meeting type and problem models ([#61](https://github.com/MeNn13/ai-for-developers-project-386/issues/61)) ([263134e](https://github.com/MeNn13/ai-for-developers-project-386/commit/263134e7982eff787f5f94090e14e706bd06f01a))
+* **api:** use generated slot responses and complete conformance ([#63](https://github.com/MeNn13/ai-for-developers-project-386/issues/63)) ([fae3ed6](https://github.com/MeNn13/ai-for-developers-project-386/commit/fae3ed69fd81d708c752fd8223a6e5e1207e7707))
+
+
+### Bug Fixes
+
+* apply agent workflow retro improvements ([b52e685](https://github.com/MeNn13/ai-for-developers-project-386/commit/b52e68591be1549eecd3591d11cc30fdb9ba67cf))
+* apply agent workflow retro improvements ([#70](https://github.com/MeNn13/ai-for-developers-project-386/issues/70)) ([e613b41](https://github.com/MeNn13/ai-for-developers-project-386/commit/e613b41ad681e03410d5178f707bbccf97d83c2a))
+* **ci:** isolate script fixtures from git hook environment ([#70](https://github.com/MeNn13/ai-for-developers-project-386/issues/70)) ([291319e](https://github.com/MeNn13/ai-for-developers-project-386/commit/291319e660de4c7ac98ed994e9561cf01cfeab61))
+* match Windows agent command permissions ([df9d749](https://github.com/MeNn13/ai-for-developers-project-386/commit/df9d749b28cc871e0bed8c14f2799bf99d260ba3))
+* match Windows agent command permissions ([#66](https://github.com/MeNn13/ai-for-developers-project-386/issues/66)) ([ec440b3](https://github.com/MeNn13/ai-for-developers-project-386/commit/ec440b3e621f5c61f1eb621a7501013f67f2cc37))
+* validate patched server model generation ([11b3692](https://github.com/MeNn13/ai-for-developers-project-386/commit/11b3692a1a482d01646635c8eb4e0bc646278eae))
+* validate patched server model generation ([#56](https://github.com/MeNn13/ai-for-developers-project-386/issues/56)) ([56d768c](https://github.com/MeNn13/ai-for-developers-project-386/commit/56d768cb9230e4bfb16c276289a22b2d970172a0))
+
 ## [0.2.1](https://github.com/MeNn13/ai-for-developers-project-386/compare/v0.2.0...v0.2.1) (2026-10-31)
 
 
