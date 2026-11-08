@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { dirname, win32 } from 'node:path'
+import { dirname } from 'node:path'
+import { shells } from './agent-policy-cases.mjs'
 
 // These are named project operations, not permission to run arbitrary shell text.
 const tasks = [
@@ -26,6 +26,7 @@ const tasks = [
   'agent:lint',
   'agent:rules',
   'agent:permissions',
+  'agent:worktree-cleanup',
   'secrets',
   'build',
   'build:dotnet',
@@ -41,21 +42,12 @@ const tasks = [
   'docker:build',
   'docker:check',
 ]
-const shells = [
-  win32.join(
-    process.env.SystemRoot ?? 'C:\\WINDOWS',
-    'System32/WindowsPowerShell/v1.0/powershell.exe',
-  ),
-  win32.join(
-    homedir(),
-    '.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe',
-  ),
-]
 const commands = [
   'Get-Command mise',
   'mise exec -- node --version',
   'node scripts/agent-command.mjs',
   'node scripts/agent-push.mjs',
+  'node scripts/agent-worktree-cleanup.mjs',
   ...tasks.map((task) => `mise run ${task}`),
 ]
 const rules = []
@@ -92,7 +84,10 @@ rule(['gh', 'issue', ['view', 'list', 'status', 'create', 'edit', 'close', 'reop
 rule(['gh', 'pr', ['view', 'list', 'status', 'diff', 'checks', 'create', 'edit']])
 rule(['gh', 'pr', ['merge', 'close']], 'prompt')
 rule(['gh', 'repo', 'view'])
-rule(['node', ['scripts/agent-command.mjs', 'scripts/agent-push.mjs']])
+rule([
+  'node',
+  ['scripts/agent-command.mjs', 'scripts/agent-push.mjs', 'scripts/agent-worktree-cleanup.mjs'],
+])
 rule(['Get-Command', 'mise'])
 rule(['mise', 'exec', '--', 'node', '--version'])
 rule(['mise', 'run', tasks])

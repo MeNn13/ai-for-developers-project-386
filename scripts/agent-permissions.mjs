@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, win32 } from 'node:path'
+import { shells, permissionCases as cases } from './agent-policy-cases.mjs'
 
 const userDirectory = join(homedir(), '.codex/rules')
 const codex = join(homedir(), 'AppData/Local/Programs/OpenAI/Codex/bin/codex.exe')
@@ -11,30 +12,6 @@ if (process.platform !== 'win32' || !existsSync(codex)) {
 const ruleArguments = readdirSync(userDirectory)
   .filter((file) => file.endsWith('.rules'))
   .flatMap((file) => ['--rules', join(userDirectory, file)])
-const shells = [
-  win32.join(
-    process.env.SystemRoot ?? 'C:\\WINDOWS',
-    'System32/WindowsPowerShell/v1.0/powershell.exe',
-  ),
-  win32.join(
-    homedir(),
-    '.cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe',
-  ),
-]
-const cases = [
-  ['mise run fix', true],
-  ['mise run knip', true],
-  ['mise run lint:docs', true],
-  ['mise run install', true],
-  ['mise run generate:check', true],
-  ['node scripts/agent-command.mjs', true],
-  ['node scripts/agent-push.mjs', true],
-  ['mise run fix; git reset --hard', false],
-  ['mise run fix > output.txt', false],
-  ['node -e "process.exit()"', false],
-  ['Remove-Item -Recurse .', false],
-  ['git push origin main', false],
-]
 let failures = 0
 for (const shell of shells) {
   for (const [command, allowed] of cases) {
