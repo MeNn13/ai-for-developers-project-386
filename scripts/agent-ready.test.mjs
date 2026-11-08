@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import {
   copyFileSync,
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -22,6 +23,11 @@ test('readiness rejects formatting and an unregistered entry, then accepts repai
   const initialized = spawnSync('git', ['init'], { cwd: directory, encoding: 'utf8' })
   assert.equal(initialized.status, 0, initialized.stderr)
   copyFileSync(join(root, 'mise.toml'), join(directory, 'mise.toml'))
+  mkdirSync(join(directory, 'scripts'))
+  copyFileSync(
+    join(root, 'scripts/test-git-environment.mjs'),
+    join(directory, 'scripts/test-git-environment.mjs'),
+  )
   copyFileSync(join(root, 'hk.pkl'), join(directory, 'hk.pkl'))
   write('.prettierrc.json', readFileSync(join(root, '.prettierrc.json')))
   write(
