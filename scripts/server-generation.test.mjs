@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync, mkdirSync, cpSync, symlinkSync, rmSync } from 'node:fs'
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  mkdtempSync,
+  cpSync,
+  symlinkSync,
+  rmSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
@@ -10,9 +19,9 @@ const run = (directory, ...args) =>
     encoding: 'utf8',
   })
 
-test('generation restores stale outputs and check detects drift without modifying them', () => {
-  const fixture = resolve(root, 'artifacts/server-generation-test')
-  rmSync(fixture, { recursive: true, force: true })
+test('generation restores stale outputs and check detects drift without modifying them', (t) => {
+  const fixture = mkdtempSync(resolve(tmpdir(), 'server-generation-test-'))
+  t.after(() => rmSync(fixture, { recursive: true, force: true }))
   mkdirSync(resolve(fixture, 'contract/server'), { recursive: true })
   cpSync(resolve(root, 'contract/main.tsp'), resolve(fixture, 'contract/main.tsp'))
   for (const file of ['generate.mjs', 'patch-emitter.mjs', 'package.json']) {
@@ -43,9 +52,9 @@ test('generation restores stale outputs and check detects drift without modifyin
   assert.equal(run(fixture, '--check').status, 0)
 })
 
-test('patch accepts repeated application but refuses an incompatible version or edited source', () => {
-  const fixture = resolve(root, 'artifacts/emitter-patch-test')
-  rmSync(fixture, { recursive: true, force: true })
+test('patch accepts repeated application but refuses an incompatible version or edited source', (t) => {
+  const fixture = mkdtempSync(resolve(tmpdir(), 'emitter-patch-test-'))
+  t.after(() => rmSync(fixture, { recursive: true, force: true }))
   const server = resolve(fixture, 'contract/server')
   mkdirSync(server, { recursive: true })
   cpSync(resolve(root, 'contract/server/patch-emitter.mjs'), resolve(server, 'patch-emitter.mjs'))

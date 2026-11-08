@@ -1,14 +1,23 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { cpSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
 const root = resolve(import.meta.dirname, '..')
 
-test('common generation checks client artifacts without repairing modified, missing or extra files', () => {
-  const fixture = resolve(root, 'artifacts/common-generation-test')
-  rmSync(fixture, { recursive: true, force: true })
+test('common generation checks client artifacts without repairing modified, missing or extra files', (t) => {
+  const fixture = mkdtempSync(resolve(tmpdir(), 'common-generation-test-'))
+  t.after(() => rmSync(fixture, { recursive: true, force: true }))
   for (const file of [
     'scripts/generate.mjs',
     'contract/main.tsp',
